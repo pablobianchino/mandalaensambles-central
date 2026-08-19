@@ -165,12 +165,16 @@ body {
     background: var(--icon-bg-hover);
 }
 
-.card-emoji { display: block; }
+.card-emoji {
+    display: block;
+    /* Convierte cualquier emoji al tono azul de paleta (~#5b9bd5) */
+    filter: brightness(0) saturate(100%) invert(58%) sepia(67%) saturate(385%) hue-rotate(188deg) brightness(101%);
+}
 
 /* ---- Textos ---- */
 .card-title {
-    font-size: 16.5px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 800;
     color: var(--text-main);
     line-height: 1.3;
     margin-bottom: 8px;
@@ -178,7 +182,7 @@ body {
 
 .card-description {
     font-size: 13px;
-    color: var(--text-muted);
+    color: #525b65;
     line-height: 1.55;
     font-weight: 500;
 }
@@ -501,13 +505,20 @@ body {
     margin-top: 2px;
 }
 
-/* ---- Grilla de sugerencias ---- */
+/* ---- Grilla de sugerencias (fila horizontal con scroll) ---- */
 .emoji-suggestions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 5px;
     margin-top: 6px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
+
+.emoji-suggestions::-webkit-scrollbar { height: 4px; }
+.emoji-suggestions::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 4px; }
 
 .emoji-btn {
     background: var(--bg-white);
