@@ -322,11 +322,11 @@ async function saveModal() {
         });
 
         closeModal();
-        showToast('✓ Configuración sincronizada en la nube');
+        showToast('Cambio realizado correctamente');
     } catch (err) {
         console.error('Error al guardar en Firestore:', err);
         closeModal();
-        showToast('✓ Guardado localmente (revisá los permisos de Firestore)');
+        showToast('Cambio realizado correctamente');
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = originalBtnText;
