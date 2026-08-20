@@ -1,9 +1,9 @@
 /* ================================================================
-   MANDALA ENSAMBLES – Service Worker v1.0
-   Estrategia: Cache First (ideal para app 100% estática)
+   MANDALA ENSAMBLES – Service Worker v1.1
+   Estrategia: Network First (prioriza siempre contenido fresco)
    ================================================================ */
 
-const CACHE_NAME = 'mdl-central-v1';
+const CACHE_NAME = 'mdl-central-v1.1';
 
 const ASSETS = [
     './',
@@ -34,10 +34,18 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-/* ---- Fetch: cache first, fallback a red ---- */
+/* ---- Fetch: Network First (intenta red, fallback a cache) ---- */
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
     event.respondWith(
-        caches.match(event.request).then((cached) => cached || fetch(event.request))
+        fetch(event.request)
+            .then((networkResponse) => {
+                if (networkResponse && networkResponse.status === 200) {
+                    const clone = networkResponse.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return networkResponse;
+            })
+            .catch(() => caches.match(event.request))
     );
 });
