@@ -1,5 +1,5 @@
 /* ================================================================
-   MANDALA ENSAMBLES – Panel Central v1.0
+   MANDALA ENSAMBLES – Panel Central v1.1
    Design system consistent with app_mdl_admision
    ================================================================ */
 
@@ -9,23 +9,26 @@
     --bg-main:       #fbfaf8;
     --bg-white:      #ffffff;
     --border-color:  #ece6dc;
+    --border-hover:  #cbd9e7;
     --text-main:     #1c1f22;
-    --text-muted:    #8a9097;
-    --text-light:    #b3aa9a;
+    --text-muted:    #475569;
+    --text-light:    #94a3b8;
     --accent-blue:   #1f5491;
+    --accent-blue-light: #3b82f6;
     --accent-teal:   #007b8f;
     --accent-red:    #c2563b;
     --hover-bg:      #faf8f3;
 
-    /* Paleta de iconos – escala de azul */
-    --icon-bg:       #dbeafe;
-    --icon-bg-hover: #bfdbfe;
-    --icon-bg-deep:  #93c5fd;
+    /* Paleta de iconos (exacto estilo mockup: azul suave) */
+    --icon-bg:       #eaf2fb;
+    --icon-bg-hover: #dbeafe;
+    --icon-stroke:   #2563eb;
+    --icon-fill:     #bfdbfe;
 
     /* Sombras */
     --shadow-sm:     0 2px 8px rgba(0,0,0,0.05);
-    --shadow-card:   0 2px 14px rgba(0,0,0,0.07);
-    --shadow-hover:  0 8px 28px rgba(0,0,0,0.11);
+    --shadow-card:   0 2px 14px rgba(0,0,0,0.06);
+    --shadow-hover:  0 8px 26px rgba(31,84,145,0.12);
     --shadow-modal:  0 24px 64px rgba(0,0,0,0.18);
 
     /* Radios */
@@ -65,7 +68,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 48px 24px 96px;
-    gap: 44px;
+    gap: 40px;
 }
 
 /* ---- Header / Logo ---- */
@@ -76,8 +79,8 @@ body {
 }
 
 #main-logo {
-    width: 148px;
-    height: 148px;
+    width: 144px;
+    height: 144px;
     object-fit: contain;
     user-select: none;
     -webkit-user-drag: none;
@@ -91,9 +94,9 @@ body {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 20px;
+    gap: 22px;
     width: 100%;
-    max-width: 880px;
+    max-width: 920px;
 }
 
 /* ---- Tarjeta de módulo ---- */
@@ -101,14 +104,14 @@ body {
     background: var(--bg-white);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-card);
-    padding: 34px 28px 28px;
-    width: 244px;
+    padding: 36px 26px 30px;
+    width: 250px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     box-shadow: var(--shadow-card);
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -119,7 +122,7 @@ body {
 .module-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-hover);
-    border-color: #c0d5ef;
+    border-color: var(--border-hover);
 }
 
 .module-card:focus-visible {
@@ -134,7 +137,7 @@ body {
 
 /* Estado: sin URL configurada */
 .module-card.unconfigured {
-    opacity: 0.65;
+    opacity: 0.72;
     border-style: dashed;
     cursor: default;
 }
@@ -145,45 +148,53 @@ body {
     border-color: var(--border-color);
 }
 
-/* ---- Ícono (emoji con fondo azul) ---- */
+/* ---- Ícono del módulo (vectorial nítido con fondo suave) ---- */
 .card-icon {
-    width: 70px;
-    height: 70px;
+    width: 76px;
+    height: 76px;
     background: var(--icon-bg);
     border-radius: var(--radius-icon);
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 20px;
-    font-size: 34px;
-    line-height: 1;
-    transition: background 0.18s ease;
+    transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
 
 .module-card:hover:not(.unconfigured) .card-icon {
     background: var(--icon-bg-hover);
+    transform: scale(1.04);
 }
 
-.card-emoji {
-    display: block;
-    /* Convierte cualquier emoji al tono azul de paleta (~#5b9bd5) */
-    filter: brightness(0) saturate(100%) invert(58%) sepia(67%) saturate(385%) hue-rotate(188deg) brightness(101%);
+.card-icon svg {
+    width: 40px;
+    height: 40px;
+    stroke: var(--icon-stroke);
+    stroke-width: 1.8;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.card-icon .card-emoji-text {
+    font-size: 34px;
+    line-height: 1;
 }
 
 /* ---- Textos ---- */
 .card-title {
-    font-size: 17px;
+    font-size: 17.5px;
     font-weight: 800;
     color: var(--text-main);
-    line-height: 1.3;
+    line-height: 1.25;
     margin-bottom: 8px;
 }
 
 .card-description {
     font-size: 13px;
-    color: #525b65;
-    line-height: 1.55;
+    color: var(--text-muted);
+    line-height: 1.5;
     font-weight: 500;
 }
 
@@ -192,11 +203,11 @@ body {
     margin-top: 14px;
     font-size: 11px;
     font-weight: 700;
-    color: var(--text-light);
-    background: #f2ede5;
-    padding: 3px 11px;
+    color: #8c8273;
+    background: #f3eee6;
+    padding: 3px 12px;
     border-radius: 20px;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
 }
 
 /* ---- Empty state ---- */
@@ -213,7 +224,7 @@ body {
    ================================================================ */
 .toast {
     position: fixed;
-    bottom: 88px;
+    bottom: 84px;
     left: 50%;
     transform: translateX(-50%) translateY(0);
     background: var(--text-main);
@@ -225,10 +236,10 @@ body {
     font-family: inherit;
     z-index: 3000;
     opacity: 1;
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.25s ease, transform 0.25s ease;
     pointer-events: none;
     white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
 .toast.hidden {
@@ -254,7 +265,7 @@ body {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 8px;
     box-shadow: var(--shadow-sm);
     transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s;
     z-index: 100;
@@ -263,7 +274,7 @@ body {
 
 .btn-config:hover {
     color: var(--text-main);
-    border-color: #c0d5ef;
+    border-color: #b0c9e6;
     box-shadow: var(--shadow-card);
     transform: translateY(-1px);
 }
@@ -296,17 +307,17 @@ body {
     background: var(--bg-white);
     border-radius: var(--radius-modal);
     width: 100%;
-    max-width: 580px;
+    max-width: 620px;
     max-height: 88vh;
     display: flex;
     flex-direction: column;
     box-shadow: var(--shadow-modal);
     overflow: hidden;
-    animation: modalIn 0.22s ease;
+    animation: modalIn 0.2s ease;
 }
 
 @keyframes modalIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0)    scale(1); }
 }
 
@@ -315,7 +326,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px 28px 20px;
+    padding: 22px 26px 18px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
 }
@@ -324,7 +335,7 @@ body {
     font-size: 18px;
     font-weight: 800;
     color: var(--accent-blue);
-    letter-spacing: -0.025em;
+    letter-spacing: -0.02em;
 }
 
 .btn-icon {
@@ -344,32 +355,35 @@ body {
 .btn-icon:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
 
 /* ================================================================
-   EDITOR DE MÓDULOS
+   EDITOR DE MÓDULOS (ÁREA SCROLLABLE PRINCIPAL)
    ================================================================ */
 .modules-editor {
     flex: 1;
     overflow-y: auto;
-    padding: 20px 28px;
+    padding: 20px 26px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 18px;
 }
 
-/* ---- Fila de editor ---- */
+/* ---- Fila de módulo en el editor (SIN SCROLL INTERNO) ---- */
 .module-editor-row {
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    overflow: hidden;
-    background: #fdfcfa;
+    background: #ffffff;
+    overflow: visible;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 
 .editor-row-header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 16px;
-    background: #f5f2ec;
+    padding: 12px 18px;
+    background: #f7f5f0;
     border-bottom: 1px solid var(--border-color);
+    border-top-left-radius: 13px;
+    border-top-right-radius: 13px;
 }
 
 .editor-row-number {
@@ -388,7 +402,7 @@ body {
 
 .editor-row-title {
     flex: 1;
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 700;
     color: var(--text-main);
     overflow: hidden;
@@ -413,11 +427,12 @@ body {
 .btn-delete-module:hover { background: rgba(194,86,59,0.08); color: var(--accent-red); }
 .btn-delete-module:focus-visible { outline: 2px solid var(--accent-red); outline-offset: 2px; }
 
+/* ---- Contenedor de campos (completo, visible, sin scroll interno) ---- */
 .editor-fields {
-    padding: 16px;
+    padding: 18px;
     display: flex;
     flex-direction: column;
-    gap: 13px;
+    gap: 14px;
 }
 
 /* ================================================================
@@ -434,7 +449,7 @@ body {
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
 }
 
 .input-text {
@@ -452,106 +467,120 @@ body {
 }
 
 .input-text:focus {
-    border-color: #93b8e0;
-    box-shadow: 0 0 0 3px rgba(31,84,145,0.08);
+    border-color: #79aee4;
+    box-shadow: 0 0 0 3px rgba(31,84,145,0.1);
 }
 
 .input-text::placeholder { color: var(--text-light); font-weight: 400; }
 
-/* ---- Emoji input ---- */
-.emoji-input-wrapper {
+/* ---- Selector de Íconos Vectoriales ---- */
+.icon-picker-container {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 10px;
 }
 
-.input-emoji {
-    font-family: inherit;
-    font-size: 24px;
-    color: var(--text-main);
-    background: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-field);
-    padding: 8px 10px;
-    width: 70px;
-    text-align: center;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    cursor: text;
+.icon-picker-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.input-emoji:focus {
-    border-color: #93b8e0;
-    box-shadow: 0 0 0 3px rgba(31,84,145,0.08);
-}
-
-.emoji-preview {
-    width: 50px;
-    height: 50px;
+.icon-preview-badge {
+    width: 52px;
+    height: 52px;
     background: var(--icon-bg);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
     flex-shrink: 0;
     transition: background 0.15s;
+    border: 1px solid #d4e4f7;
 }
 
-.emoji-hint {
-    font-size: 11.5px;
-    color: var(--text-light);
-    font-weight: 500;
-    margin-top: 2px;
+.icon-preview-badge svg {
+    width: 28px;
+    height: 28px;
+    stroke: var(--icon-stroke);
+    stroke-width: 1.8;
+    fill: none;
 }
 
-/* ---- Grilla de sugerencias (fila horizontal con scroll) ---- */
-.emoji-suggestions {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 5px;
-    margin-top: 6px;
-    padding-bottom: 6px;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-}
-
-.emoji-suggestions::-webkit-scrollbar { height: 4px; }
-.emoji-suggestions::-webkit-scrollbar-thumb { background: #d9d2c5; border-radius: 4px; }
-
-.emoji-btn {
-    background: var(--bg-white);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 5px 8px;
-    font-size: 20px;
-    cursor: pointer;
+.icon-preview-badge .card-emoji-text {
+    font-size: 26px;
     line-height: 1;
-    transition: background 0.13s, border-color 0.13s, transform 0.1s;
+}
+
+.icon-picker-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Grilla de íconos vectoriales disponibles */
+.icon-library-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.icon-option-btn {
+    width: 44px;
+    height: 44px;
+    background: var(--bg-white);
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
     outline: none;
+    padding: 6px;
 }
 
-.emoji-btn:hover {
+.icon-option-btn svg {
+    width: 22px;
+    height: 22px;
+    stroke: #475569;
+    stroke-width: 1.8;
+    fill: none;
+    transition: stroke 0.15s ease;
+}
+
+.icon-option-btn:hover {
     background: var(--icon-bg);
-    border-color: #93b8e0;
-    transform: scale(1.18);
+    border-color: #93c5fd;
+    transform: translateY(-1px);
 }
 
-.emoji-btn:active { transform: scale(1.05); }
-.emoji-btn:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.icon-option-btn:hover svg {
+    stroke: var(--accent-blue);
+}
+
+.icon-option-btn.selected {
+    background: var(--icon-bg);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 2px rgba(31,84,145,0.18);
+}
+
+.icon-option-btn.selected svg {
+    stroke: var(--accent-blue);
+}
 
 /* ================================================================
    MODAL FOOTER Y BOTONES
    ================================================================ */
 .modal-add-row {
-    padding: 4px 28px 14px;
+    padding: 4px 26px 14px;
     flex-shrink: 0;
 }
 
 .btn-add-module {
     background: transparent;
-    border: 1.5px dashed #cac4bb;
+    border: 1.5px dashed #cfc8be;
     border-radius: 12px;
     padding: 11px 20px;
     font-family: inherit;
@@ -581,7 +610,7 @@ body {
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
-    padding: 14px 28px 22px;
+    padding: 14px 26px 20px;
     border-top: 1px solid var(--border-color);
     flex-shrink: 0;
 }
@@ -626,24 +655,25 @@ body {
    ================================================================ */
 @media (max-width: 600px) {
     #app {
-        padding: 40px 16px 100px;
-        gap: 36px;
+        padding: 36px 16px 90px;
+        gap: 32px;
         justify-content: flex-start;
-        padding-top: 56px;
+        padding-top: 48px;
     }
 
     #main-logo {
-        width: 116px;
-        height: 116px;
+        width: 118px;
+        height: 118px;
     }
 
     .module-card {
         width: 100%;
         max-width: 340px;
-        padding: 28px 22px 22px;
+        padding: 30px 22px 24px;
     }
 
-    .card-icon { width: 60px; height: 60px; font-size: 30px; }
+    .card-icon { width: 68px; height: 68px; }
+    .card-icon svg { width: 34px; height: 34px; }
 
     .btn-config {
         bottom: 18px;
