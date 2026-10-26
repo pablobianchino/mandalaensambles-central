@@ -94,9 +94,9 @@ body {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 22px;
+    gap: 16px;
     width: 100%;
-    max-width: 920px;
+    max-width: 1120px;
 }
 
 /* ---- Tarjeta de módulo ---- */
@@ -104,8 +104,9 @@ body {
     background: var(--bg-white);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-card);
-    padding: 36px 26px 30px;
-    width: 250px;
+    padding: 24px 18px 20px;
+    width: 195px;
+    min-height: 220px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -117,6 +118,8 @@ body {
     -webkit-tap-highlight-color: transparent;
     outline: none;
     position: relative;
+    text-decoration: none;
+    color: inherit;
 }
 
 .module-card:hover {
@@ -150,14 +153,14 @@ body {
 
 /* ---- Ícono del módulo (vectorial nítido con fondo suave) ---- */
 .card-icon {
-    width: 76px;
-    height: 76px;
+    width: 60px;
+    height: 60px;
     background: var(--icon-bg);
     border-radius: var(--radius-icon);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
     transition: background 0.2s ease, transform 0.2s ease;
     flex-shrink: 0;
 }
@@ -168,8 +171,8 @@ body {
 }
 
 .card-icon svg {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
     stroke: var(--icon-stroke);
     stroke-width: 1.8;
     fill: none;
@@ -178,34 +181,34 @@ body {
 }
 
 .card-icon .card-emoji-text {
-    font-size: 34px;
+    font-size: 28px;
     line-height: 1;
 }
 
 /* ---- Textos ---- */
 .card-title {
-    font-size: 17.5px;
+    font-size: 15.5px;
     font-weight: 800;
     color: var(--text-main);
     line-height: 1.25;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 .card-description {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-muted);
-    line-height: 1.5;
+    line-height: 1.45;
     font-weight: 500;
 }
 
 /* ---- Badge sin configurar ---- */
 .card-badge {
-    margin-top: 14px;
-    font-size: 11px;
+    margin-top: 10px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #8c8273;
     background: #f3eee6;
-    padding: 3px 12px;
+    padding: 2px 10px;
     border-radius: 20px;
     letter-spacing: 0.02em;
 }
@@ -245,6 +248,42 @@ body {
 .toast.hidden {
     opacity: 0;
     transform: translateX(-50%) translateY(10px);
+}
+
+/* ================================================================
+   BADGE DE VERSIÓN (fijo abajo a la izquierda)
+   ================================================================ */
+.app-version-badge {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 100px;
+    padding: 6px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    user-select: none;
+    z-index: 90;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.app-version-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+}
+
+.app-version-dot.error {
+    background: #ef4444;
 }
 
 /* ================================================================
@@ -384,6 +423,44 @@ body {
     border-bottom: 1px solid var(--border-color);
     border-top-left-radius: 13px;
     border-top-right-radius: 13px;
+}
+
+.editor-row-order-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-order-module {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    color: var(--text-muted);
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    outline: none;
+    padding: 0;
+}
+
+.btn-order-module:hover:not(:disabled) {
+    background: var(--icon-bg);
+    color: var(--accent-blue);
+    border-color: #93c5fd;
+}
+
+.btn-order-module:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.btn-order-module:focus-visible {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 1px;
 }
 
 .editor-row-number {
