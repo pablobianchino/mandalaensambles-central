@@ -3,7 +3,7 @@
    Estrategia: Network First (prioriza siempre contenido fresco)
    ================================================================ */
 
-const CACHE_NAME = 'mdl-central-v1.3.1';
+const CACHE_NAME = 'mdl-central-v2.0';
 
 const ASSETS = [
     './',
