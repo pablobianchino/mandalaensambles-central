@@ -24,19 +24,31 @@
             <img src="logo.png" alt="Mandala Ensambles" id="main-logo">
         </header>
 
-        <main id="main-content">
-            <div id="modules-grid" role="list" aria-label="Módulos disponibles"></div>
+        <main id="main-content" class="sections-container">
+            <!-- GRUPO 1: APLICACIONES (AZUL SUAVE) -->
+            <section class="modules-group-section">
+                <div id="grid-apps" class="modules-grid"></div>
+            </section>
+
+            <!-- LÍNEA SEPARADORA GRIS CLARO -->
+            <div id="main-divider-wrap" class="section-divider-wrap">
+                <div class="section-divider-line"></div>
+                <div class="section-divider-pill">ENLACES EXTERNOS</div>
+                <div class="section-divider-line"></div>
+            </div>
+
+            <!-- GRUPO 2: ENLACES EXTERNOS (ANARANJADO CLARO) -->
+            <section class="modules-group-section">
+                <div id="grid-webs" class="modules-grid"></div>
+            </section>
         </main>
     </div>
 
     <!-- ===== TOAST ===== -->
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <!-- ===== BADGE DE VERSIÓN ===== -->
-    <div id="app-version" class="app-version-badge" aria-label="Versión del sistema">
-        <span class="app-version-dot"></span>
-        <span id="version-text">v1.3.0</span>
-    </div>
+    <!-- ===== VERSIÓN (PEQUEÑO Y EN GRIS ABAJO A LA IZQUIERDA) ===== -->
+    <div class="app-version-text" aria-label="Versión del sistema">v1.0</div>
 
     <!-- ===== BOTÓN CONFIGURAR ===== -->
     <button id="btn-config" class="btn-config" aria-label="Configurar módulos">
@@ -47,12 +59,16 @@
         Configurar
     </button>
 
-    <!-- ===== MODAL DE CONFIGURACIÓN ===== -->
+    <!-- ===== MODAL DE CONFIGURACIÓN MASTER-DETAIL (2 COLUMNAS) ===== -->
     <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div id="config-modal" class="config-modal">
+        <div id="config-modal" class="config-modal-split" style="position:relative;">
 
+            <!-- HEADER DEL MODAL -->
             <div class="modal-header">
-                <h2 id="modal-title">Configurar módulos</h2>
+                <div>
+                    <h2 id="modal-title">Configuración de Módulos</h2>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Reordena con las flechas dentro de cada categoría o gestiona su visibilidad</p>
+                </div>
                 <button id="btn-close-modal" class="btn-icon" aria-label="Cerrar configuración">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -61,26 +77,69 @@
                 </button>
             </div>
 
-            <div id="modules-editor" class="modules-editor"></div>
+            <!-- CUERPO MASTER-DETAIL -->
+            <div class="modal-split-body">
+                <!-- LATERAL IZQUIERDO -->
+                <aside class="modal-sidebar">
+                    <div class="sidebar-top-actions">
+                        <button type="button" id="btn-sidebar-add" class="btn-sidebar-add">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Agregar nuevo módulo
+                        </button>
+                    </div>
+                    <div id="sidebar-list" class="sidebar-modules-list"></div>
+                </aside>
 
-            <div class="modal-add-row">
-                <button id="btn-add-module" class="btn-add-module">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Agregar módulo
-                </button>
+                <!-- PANEL DERECHO DE DETALLE -->
+                <section id="detail-panel" class="modal-detail-panel"></section>
             </div>
 
-            <div class="modal-footer">
+            <!-- FOOTER DEL MODAL -->
+            <div class="modal-footer" style="padding:14px 26px; background:#faf8f5;">
                 <button id="btn-cancel-modal" class="btn-secondary">Cancelar</button>
                 <button id="btn-save-modal" class="btn-primary">Guardar cambios</button>
+            </div>
+
+            <!-- DIÁLOGO: AGREGAR NUEVO MÓDULO -->
+            <div id="new-module-dialog" class="mini-dialog-overlay" style="display:none;">
+                <div class="mini-dialog-card">
+                    <div>
+                        <h4 style="font-size:16px; font-weight:800; color:#1f5491; margin-bottom:4px;">Nuevo Módulo</h4>
+                        <p style="font-size:12.5px; color:var(--text-muted);">Indica el título y selecciona la categoría</p>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="new-mod-title">Título del módulo</label>
+                        <input type="text" id="new-mod-title" class="input-text" placeholder="Ej: Grabación en Estudio" autocomplete="off">
+                    </div>
+
+                    <div class="field-group">
+                        <label>Categoría</label>
+                        <div class="type-selector-box">
+                            <button type="button" id="btn-type-app" class="type-option-btn selected type-app-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                                Aplicación
+                            </button>
+                            <button type="button" id="btn-type-web" class="type-option-btn type-web-btn">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/></svg>
+                                Enlace Externo
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+                        <button type="button" id="btn-cancel-new-mod" class="btn-secondary" style="padding:8px 14px; font-size:13px;">Cancelar</button>
+                        <button type="button" id="btn-confirm-new-mod" class="btn-primary" style="padding:8px 18px; font-size:13px;">Crear y Configurar</button>
+                    </div>
+                </div>
             </div>
 
         </div>
     </div>
 
-    <script type="module" src="app.js?v=1.3.1"></script>
+    <script type="module" src="app.js?v=2.0"></script>
 </body>
 </html>
