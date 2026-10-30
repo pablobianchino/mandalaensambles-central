@@ -1,6 +1,6 @@
 {
-    "name": "Mandala Ensambles",
-    "short_name": "Mandala",
+    "name": "Mandala Core",
+    "short_name": "MDL Core",
     "description": "Panel central de módulos – Mandala Ensambles",
     "start_url": "./",
     "display": "standalone",
