@@ -258,6 +258,7 @@
                     <button type="button" data-f="admin">Administradores</button>
                     <button type="button" data-f="admision">Admisión</button>
                     <button type="button" data-f="festival">Festivales</button>
+                    <button type="button" data-f="docentes">Docentes</button>
                     <button type="button" data-f="sinrol">Sin rol</button>
                     <button type="button" data-f="inactivo">Inactivos</button>
                 </div>
@@ -267,10 +268,8 @@
                 <div class="abm-tabla-info" id="usu-info"></div>
                 <div class="abm-tabla-scroll">
                     <table class="abm-tabla">
-                        <thead>
-                            <tr><th class="q"></th><th class="grp gen sep">General</th><th class="grp sep" colspan="4">Admisión</th><th class="grp fest sep" colspan="3">Festivales</th><th class="sep"></th><th></th></tr>
-                            <tr><th class="q">Usuario</th><th class="sep" title="Administrador general: entra a todas las apps">Admin.</th><th class="sep" title="Admisor">Admisor</th><th title="Coordinador de grupos">Coord.</th><th title="Docente">Docente</th><th title="Atención al cliente">Atención</th><th class="sep" title="Gestor de Festivales">Gestor</th><th title="Sonidista">Sonido</th><th title="Planificador de clases">Planif.</th><th class="sep">Estado</th><th></th></tr>
-                        </thead>
+                        <!-- v1.6: el encabezado se arma en usuarios.js según las apps de permisos.js -->
+                        <thead id="usu-thead"></thead>
                         <tbody id="usu-cuerpo"></tbody>
                     </table>
                 </div>
@@ -453,6 +452,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=1.5"></script>
+    <script type="module" src="app.js?v=1.6"></script>
 </body>
 </html>
