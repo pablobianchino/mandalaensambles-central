@@ -10,16 +10,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import {
     iniciarAcceso, alCambiarSesion, loginConEmail, loginConGoogle, cerrarSesion, esSesionConPassword,
-    cambiarPassword, marcarPasswordModificada, consultarPerfil, leerTodosLosUsuarios, guardarAppsHabilitadas,
+    cambiarPassword, marcarPasswordModificada, consultarPerfil, obtenerAuth,
     CLAVE_INICIAL_DEFECTO
 } from "./acceso.js";
 import {
-    APPS_CON_ACCESO, IDS_APPS, ACCESO_SOLO_ADMIN, ACCESO_TODOS, accesoDeModulo, puedeVerModulo, etiquetaAcceso,
-    listaRoles, appsGuardadas, appsPropuestas, mismasApps
+    APPS_CON_ACCESO, IDS_APPS, ACCESO_SOLO_ADMIN, ACCESO_TODOS, accesoDeModulo, puedeVerModulo, etiquetaAcceso
 } from "./permisos.js";
+import { iniciarUsuarios, mostrarUsuarios, ocultarUsuarios } from "./usuarios.js";
 
 /* Versión de Core: se sube en cada desarrollo y se registra en CAMBIOS_core.md */
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 
 /* ----------------------------------------------------------------
    CONFIGURACIÓN FIREBASE (Mandala Ensambles)
@@ -271,9 +271,33 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLocalFallback();
     bindGlobalEvents();
     bindAccesoEvents();
+    iniciarUsuarios({ app, db, auth: obtenerAuth, usuarioActual: () => usuarioActual, showToast, escHtml });
+    window.addEventListener('hashchange', aplicarRuta);
     registerServiceWorker();
     alCambiarSesion(manejarCambioSesion);
 });
+
+/* ---- Navegación: inicio (tarjetas) o #usuarios (solo administrador) ---- */
+function aplicarRuta() {
+    if (location.hash === '#usuarios' && usuarioActual?.esAdmin) {
+        mostrarUsuarios();
+    } else {
+        if (location.hash === '#usuarios') history.replaceState(null, '', location.pathname);
+        ocultarUsuarios();
+    }
+}
+
+function irAUsuarios() {
+    if (location.hash === '#usuarios') aplicarRuta();
+    else location.hash = '#usuarios';
+}
+
+function irAlInicio() {
+    if (location.hash) {
+        history.pushState(null, '', location.pathname);
+    }
+    aplicarRuta();
+}
 
 /* ================================================================
    SESIÓN Y ACCESO
@@ -313,6 +337,7 @@ async function manejarCambioSesion(user) {
     pintarBarraSesion(perfil);
     renderModules();
     mostrarEstado('app');
+    aplicarRuta();
 
     if (!syncIniciada) {
         syncIniciada = true;
@@ -440,11 +465,9 @@ function bindAccesoEvents() {
         if (cambioClaveForzado) await cerrarSesion();
     });
 
-    // Revisar accesos (administrador)
-    document.getElementById('btn-revisar-accesos')?.addEventListener('click', abrirRevisarAccesos);
-    document.getElementById('btn-accesos-cerrar')?.addEventListener('click', () => cerrarVentana('modal-accesos'));
-    document.getElementById('btn-accesos-cerrar-x')?.addEventListener('click', () => cerrarVentana('modal-accesos'));
-    document.getElementById('btn-accesos-guardar')?.addEventListener('click', guardarAccesosRevisados);
+    // Usuarios y accesos (administrador)
+    document.getElementById('btn-usuarios')?.addEventListener('click', irAUsuarios);
+    document.getElementById('usu-btn-volver')?.addEventListener('click', irAlInicio);
 }
 
 function abrirVentana(id) {
@@ -463,7 +486,7 @@ function cerrarVentanasDeSesion() {
     abrirPopoverPerfil(false);
     if (isModalOpen) closeModal();
     cerrarVentana('modal-cambio-clave');
-    cerrarVentana('modal-accesos');
+    ocultarUsuarios();
 }
 
 /* ---- Cambio de clave: obligatorio (clave inicial) o voluntario (desde el perfil) ---- */
@@ -515,98 +538,6 @@ async function enviarCambioClave(e) {
     showToast('Contraseña actualizada');
 }
 
-/* ---- Revisar accesos (herramienta de administrador, etapa 0) ---- */
-let accesosPendientes = [];
-
-function chipsApps(apps, clase) {
-    if (!apps.length) return '<span class="ds-chip">Ninguna</span>';
-    return apps.map(id => `<span class="ds-chip ${clase}">${escHtml(APPS_CON_ACCESO[id]?.nombre || id)}</span>`).join(' ');
-}
-
-async function abrirRevisarAccesos() {
-    if (!usuarioActual?.esAdmin) return;
-    const lista = document.getElementById('accesos-lista');
-    const resumen = document.getElementById('accesos-resumen');
-    const btnGuardar = document.getElementById('btn-accesos-guardar');
-    lista.innerHTML = '<div class="ds-empty"><b>Cargando usuarios…</b></div>';
-    resumen.innerHTML = '';
-    btnGuardar.disabled = true;
-    abrirVentana('modal-accesos');
-
-    let usuarios;
-    try {
-        usuarios = await leerTodosLosUsuarios();
-    } catch (err) {
-        console.warn('[MDL Core] No se pudieron leer los usuarios:', err);
-        lista.innerHTML = `<div class="ds-empty"><b>No se pudieron leer los usuarios</b>${escHtml(err.code || err.message || '')}</div>`;
-        return;
-    }
-
-    usuarios.sort((a, b) => (a.activo === false) - (b.activo === false) || String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || '')));
-
-    // Correos repetidos (fichas duplicadas): se marcan para revisarlos
-    const conteoEmail = {};
-    usuarios.forEach(u => { const e = String(u.email || '').toLowerCase(); conteoEmail[e] = (conteoEmail[e] || 0) + 1; });
-
-    accesosPendientes = [];
-    const filas = usuarios.map(u => {
-        const guardadas = appsGuardadas(u);
-        const propuestas = appsPropuestas(u);
-        const tieneCampo = Array.isArray(u.apps_habilitadas);
-        const cambia = !tieneCampo || !mismasApps(guardadas, propuestas);
-        if (cambia) accesosPendientes.push({ id: u.id, apps: propuestas });
-
-        const roles = listaRoles(u);
-        const duplicado = conteoEmail[String(u.email || '').toLowerCase()] > 1;
-        const estadoChip = cambia
-            ? `<span class="ds-chip warn">${tieneCampo ? 'Se actualiza' : 'Se completa'}</span>`
-            : '<span class="ds-chip ok">Al día</span>';
-        const nombre = u.nombre || (u.email || '').split('@')[0] || '(sin nombre)';
-        const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
-
-        return `
-            <div class="acceso-fila ${u.activo === false ? 'inactivo' : ''}">
-                <span class="ds-avatar" aria-hidden="true">${escHtml(iniciales)}</span>
-                <div class="acceso-nombre">
-                    <b>${escHtml(nombre)}</b>
-                    <span>${escHtml(u.email || 'sin correo')}</span>
-                    <div class="acceso-etiquetas">
-                        ${u.activo === false ? '<span class="ds-chip">Inactivo</span>' : ''}
-                        ${duplicado ? '<span class="ds-chip bad">Correo repetido</span>' : ''}
-                    </div>
-                </div>
-                <div class="acceso-roles"><small>Roles</small>${roles.length ? escHtml(roles.join(', ')) : '—'}</div>
-                <div class="acceso-apps"><small>Hoy en la ficha</small>${tieneCampo ? chipsApps(guardadas, 'info') : '<span class="acceso-vacio">Sin completar</span>'}</div>
-                <div class="acceso-apps"><small>Acceso calculado</small>${chipsApps(propuestas, 'teal')}</div>
-                <div class="acceso-estado">${estadoChip}</div>
-            </div>`;
-    });
-
-    const activos = usuarios.filter(u => u.activo !== false).length;
-    resumen.innerHTML = `
-        <span class="ds-chip">${usuarios.length} fichas (${activos} activas)</span>
-        <span class="ds-chip ${accesosPendientes.length ? 'warn' : 'ok'}">${accesosPendientes.length} para completar o actualizar</span>`;
-    lista.innerHTML = filas.join('') || '<div class="ds-empty"><b>No hay usuarios</b></div>';
-    btnGuardar.disabled = accesosPendientes.length === 0;
-    btnGuardar.textContent = accesosPendientes.length ? `Guardar accesos (${accesosPendientes.length})` : 'Todo al día';
-}
-
-async function guardarAccesosRevisados() {
-    if (!usuarioActual?.esAdmin || accesosPendientes.length === 0) return;
-    const btn = document.getElementById('btn-accesos-guardar');
-    btn.disabled = true;
-    btn.textContent = 'Guardando…';
-    try {
-        const n = await guardarAppsHabilitadas(accesosPendientes);
-        showToast(`Accesos guardados en ${n} fichas`);
-        await abrirRevisarAccesos();
-    } catch (err) {
-        console.error('[MDL Core] Error al guardar accesos:', err);
-        showToast('No se pudieron guardar los accesos. Revisá la consola.');
-        btn.disabled = false;
-        btn.textContent = `Guardar accesos (${accesosPendientes.length})`;
-    }
-}
 
 /* ================================================================
    EVENTOS GLOBALES
@@ -671,8 +602,6 @@ function bindGlobalEvents() {
                 abrirPopoverPerfil(false);
             } else if (!document.getElementById('modal-cambio-clave')?.hidden && !cambioClaveForzado) {
                 cerrarVentana('modal-cambio-clave');
-            } else if (!document.getElementById('modal-accesos')?.hidden) {
-                cerrarVentana('modal-accesos');
             } else if (isModalOpen) {
                 closeModal();
             }
