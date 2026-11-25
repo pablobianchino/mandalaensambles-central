@@ -137,9 +137,9 @@
 
     <!-- ===== BOTONES DE ADMINISTRADOR (abajo a la derecha) ===== -->
     <div class="acciones-admin solo-admin">
-    <button id="btn-revisar-accesos" class="btn-config" aria-label="Revisar accesos de usuarios">
+    <button id="btn-usuarios" class="btn-config" aria-label="Usuarios y accesos">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Revisar accesos
+        Usuarios y accesos
     </button>
     <button id="btn-config" class="btn-config" aria-label="Configurar módulos">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -177,23 +177,147 @@
         </form>
     </div>
 
-    <!-- ===== VENTANA: REVISAR ACCESOS (solo administrador) ===== -->
-    <div id="modal-accesos" class="ds-overlay" role="dialog" aria-modal="true" aria-labelledby="titulo-accesos" hidden>
-        <div class="ds-modal ds-modal-ancho">
-            <div class="ds-modal-head">
+    <!-- ===== PÁGINA: USUARIOS Y ACCESOS (v1.3, solo administrador) ===== -->
+    <section id="vista-usuarios" class="vista-usuarios" aria-labelledby="usu-titulo">
+        <div class="usu-top">
+            <img src="logo.png" alt="Mandala Ensambles" class="usu-logo">
+            <button type="button" id="usu-btn-volver" class="btn-volver">
+                <svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Volver al inicio
+            </button>
+        </div>
+        <div class="usu-pagina">
+            <div class="ds-ph">
                 <div>
-                    <h3 id="titulo-accesos">Revisar accesos</h3>
-                    <p class="texto-ayuda">A qué aplicaciones entra cada usuario, calculado a partir de sus roles actuales. Al guardar se completa el campo de acceso de cada ficha; no se cambia ningún rol ni se quita ningún acceso.</p>
+                    <h1 id="usu-titulo">Usuarios y accesos</h1>
+                    <p>Quién entra a cada aplicación y con qué rol. Los permisos finos de cada app se ajustan dentro de ella.</p>
                 </div>
-                <button type="button" id="btn-accesos-cerrar-x" class="ds-kebab" aria-label="Cerrar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
+                <div class="ds-ph-actions">
+                    <button type="button" id="usu-btn-recargar" class="ds-btn ds-btn-secondary" title="Volver a leer los usuarios">
+                        <svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8M3 3v5h5M3 12a9 9 0 0 0 15 6.7L21 16M16 16h5v5"/></svg>Actualizar
+                    </button>
+                    <button type="button" id="usu-btn-agregar" class="ds-btn ds-btn-primary">
+                        <svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar usuario
+                    </button>
+                </div>
             </div>
-            <div id="accesos-resumen" class="accesos-resumen"></div>
-            <div id="accesos-lista" class="accesos-lista"></div>
+
+            <div class="abm-tabla-barra">
+                <label class="abm-buscar"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input type="search" id="usu-buscar" placeholder="Buscar por nombre o correo" aria-label="Buscar usuario"></label>
+                <div class="abm-filtros" id="usu-filtros">
+                    <button type="button" class="on" data-f="">Todos</button>
+                    <button type="button" data-f="admin">Administradores</button>
+                    <button type="button" data-f="admision">Admisión</button>
+                    <button type="button" data-f="festival">Festivales</button>
+                    <button type="button" data-f="sinrol">Sin rol</button>
+                    <button type="button" data-f="inactivo">Inactivos</button>
+                </div>
+            </div>
+
+            <div class="abm-tabla-panel">
+                <div class="abm-tabla-info" id="usu-info"></div>
+                <div class="abm-tabla-scroll">
+                    <table class="abm-tabla">
+                        <thead>
+                            <tr><th class="q"></th><th class="grp gen sep">General</th><th class="grp sep" colspan="4">Admisión</th><th class="grp fest sep" colspan="3">Festivales</th><th class="sep"></th><th></th></tr>
+                            <tr><th class="q">Usuario</th><th class="sep" title="Administrador general: entra a todas las apps">Admin.</th><th class="sep" title="Admisor">Admisor</th><th title="Coordinador de grupos">Coord.</th><th title="Docente">Docente</th><th title="Atención al cliente">Atención</th><th class="sep" title="Gestor de Festivales">Gestor</th><th title="Sonidista">Sonido</th><th title="Planificador de clases">Planif.</th><th class="sep">Estado</th><th></th></tr>
+                        </thead>
+                        <tbody id="usu-cuerpo"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== VENTANA: USUARIO (misma ventana con pestañas que Admisión) ===== -->
+    <div id="modal-usuario" class="ds-overlay" role="dialog" aria-modal="true" aria-labelledby="usu-cab-nom" hidden>
+        <div class="modal-user">
+            <div class="abm-edit-cabecera">
+                <div class="abm-user-cab">
+                    <div class="abm-user-avatar" id="usu-cab-av">+</div>
+                    <div class="abm-user-cab-tx">
+                        <div class="abm-user-cab-nom" id="usu-cab-nom">Nuevo usuario</div>
+                        <div class="abm-user-cab-mail" id="usu-cab-mail"></div>
+                        <div class="abm-user-cab-chips" id="usu-cab-chips"></div>
+                    </div>
+                    <button type="button" id="usu-btn-cerrar" class="ds-icon-btn" aria-label="Cerrar"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+                </div>
+                <div class="abm-user-tabs" role="tablist">
+                    <button type="button" role="tab" data-tab="datos" class="on"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="tab-largo">Datos y cuenta</span><span class="tab-corto">Datos</span></button>
+                    <button type="button" role="tab" data-tab="accesos"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg><span class="tab-largo">Accesos y roles</span><span class="tab-corto">Accesos</span></button>
+                </div>
+            </div>
+
+            <div class="abm-edit-cuerpo">
+                <!-- Pestaña 1: Datos y cuenta -->
+                <div class="abm-user-sec on" data-tab="datos">
+                    <p class="abm-user-st"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Datos personales</p>
+                    <div class="abm-user-grid2">
+                        <label class="abm-user-campo abm-user-full">Nombre completo<input type="text" id="usu-nombre" placeholder="Ej: Martín Gómez" autocomplete="off"></label>
+                        <label class="abm-user-campo">Correo de ingreso<input type="email" id="usu-email" placeholder="usuario@ejemplo.com" autocomplete="off"><small class="abm-user-nota" id="usu-nota-email"></small></label>
+                        <label class="abm-user-campo">Celular (WhatsApp)<input type="text" id="usu-celular" placeholder="Ej: +54 9 11 1234-5678" autocomplete="off"></label>
+                    </div>
+
+                    <p class="abm-user-st"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></svg>Cuenta</p>
+                    <div class="abm-user-fila">
+                        <div class="abm-user-fila-tx"><b>Estado: <span id="usu-lbl-activo">Activo</span></b><small id="usu-nota-activo"></small></div>
+                        <label class="abm-switch" title="Cuenta activa"><input type="checkbox" id="usu-activo" checked><span></span></label>
+                    </div>
+                    <div class="abm-user-fila" id="usu-fila-clave">
+                        <div class="abm-user-fila-tx"><b>Contraseña</b><small>Genera una clave temporal que se muestra una sola vez. La persona la cambia al entrar.</small></div>
+                        <button type="button" id="usu-btn-reset" class="ds-btn ds-btn-secondary"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8M3 3v5h5M3 12a9 9 0 0 0 15 6.7L21 16M16 16h5v5"/></svg>Restablecer</button>
+                    </div>
+                    <div class="usu-aviso-app" id="usu-aviso-nuevo" hidden>Al guardar se crea la cuenta con la contraseña inicial y la persona la tiene que cambiar en su primer ingreso (en Core o en cualquier app).</div>
+                </div>
+
+                <!-- Pestaña 2: Accesos y roles -->
+                <div class="abm-user-sec" data-tab="accesos">
+                    <p class="abm-user-st"><svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>Aplicaciones</p>
+                    <p class="abm-user-ayuda">Activá las aplicaciones a las que entra y elegí su rol en cada una. Puede tener varios roles.</p>
+
+                    <div class="app-acceso admin-total cerrado" id="usu-app-admin">
+                        <div class="app-acceso-cab">
+                            <div class="abm-user-fila-tx"><b><span class="abm-user-app gen">General</span>Administrador</b><small id="usu-nota-admin"></small></div>
+                            <label class="abm-switch gen" title="Administrador general"><input type="checkbox" id="usu-admin"><span></span></label>
+                        </div>
+                    </div>
+
+                    <div id="usu-bloques-apps"></div>
+                </div>
+            </div>
+
+            <div class="abm-edit-pie">
+                <div id="usu-errores" class="login-error usu-errores" role="alert" hidden></div>
+                <span class="abm-edit-estado" id="usu-estado-cambios"></span>
+                <button type="button" id="usu-btn-cancelar" class="ds-btn ds-btn-secondary">Cancelar</button>
+                <button type="button" id="usu-btn-guardar" class="ds-btn ds-btn-primary">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VENTANA: CONFIRMACIÓN ===== -->
+    <div id="modal-confirmar" class="ds-overlay ds-overlay-arriba" role="alertdialog" aria-modal="true" aria-labelledby="confirmar-titulo" hidden>
+        <div class="ds-modal ds-modal-chico">
+            <div class="ds-modal-head"><h3 id="confirmar-titulo"></h3></div>
+            <p class="texto-ayuda" id="confirmar-texto"></p>
             <div class="ds-modal-foot">
-                <button type="button" id="btn-accesos-cerrar" class="ds-btn ds-btn-secondary">Cerrar</button>
-                <button type="button" id="btn-accesos-guardar" class="ds-btn ds-btn-primary" disabled>Guardar accesos</button>
+                <button type="button" id="confirmar-cancelar" class="ds-btn ds-btn-secondary">Cancelar</button>
+                <button type="button" id="confirmar-ok" class="ds-btn ds-btn-primary">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== VENTANA: CONTRASEÑA TEMPORAL (se muestra una sola vez) ===== -->
+    <div id="modal-clave-temporal" class="ds-overlay ds-overlay-arriba" role="dialog" aria-modal="true" aria-labelledby="clave-temp-titulo" hidden>
+        <div class="ds-modal ds-modal-chico">
+            <div class="ds-modal-head"><h3 id="clave-temp-titulo">Contraseña temporal</h3></div>
+            <p class="texto-ayuda">Para <b id="clave-temp-email"></b>. Copiala y enviásela a la persona: <b>no se vuelve a mostrar</b>. Al ingresar se le pide elegir una nueva.</p>
+            <div class="clave-temp-fila">
+                <input type="text" id="clave-temp-valor" class="ds-input clave-temp-valor" readonly aria-label="Contraseña temporal">
+                <button type="button" id="clave-temp-copiar" class="ds-btn ds-btn-primary">Copiar</button>
+            </div>
+            <p class="usu-aviso-app warn" id="clave-temp-extra" hidden></p>
+            <div class="ds-modal-foot">
+                <button type="button" id="clave-temp-cerrar" class="ds-btn ds-btn-secondary">Listo, ya la copié</button>
             </div>
         </div>
     </div>
@@ -279,6 +403,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=1.2"></script>
+    <script type="module" src="app.js?v=1.3"></script>
 </body>
 </html>
