@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/restablecer-clave",
+      "destination": "https://mandalaensambles-admision.vercel.app/api/restablecer-clave"
+    }
+  ]
+}
