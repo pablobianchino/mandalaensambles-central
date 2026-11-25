@@ -4,7 +4,7 @@
    Cambiar CACHE_NAME en cada versión (igual que APP_VERSION en app.js)
    ================================================================ */
 
-const CACHE_NAME = 'mdl-central-v1.4';
+const CACHE_NAME = 'mdl-central-v1.5';
 
 const ASSETS = [
     './',
