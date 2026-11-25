@@ -16,10 +16,95 @@
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="estado-cargando">
+
+    <!-- ===== PANTALLA DE CARGA (mientras se verifica la sesión) ===== -->
+    <div id="pantalla-carga" aria-live="polite">
+        <img src="logo.png" alt="Mandala Ensambles">
+        <p>Verificando tu sesión…</p>
+    </div>
+
+    <!-- ===== LOGIN (misma estética que Admisión y Festivales) ===== -->
+    <div id="login-container">
+        <div class="login-card">
+            <img src="logo.png" alt="Mandala Ensambles" class="login-logo">
+            <h2 class="login-titulo">Mandala Ensambles</h2>
+            <div class="login-subtitulo">Portal Central</div>
+
+            <form id="form-login-email" class="login-form" novalidate>
+                <div class="ds-field">
+                    <label for="login-email">Correo electrónico</label>
+                    <input type="email" id="login-email" class="ds-input login-input" autocomplete="username" required placeholder="tu-correo@mandalahouse.com">
+                </div>
+                <div class="ds-field">
+                    <label for="login-password">Contraseña</label>
+                    <div class="login-pass-wrap">
+                        <input type="password" id="login-password" class="ds-input login-input" autocomplete="current-password" required placeholder="••••••••">
+                        <button type="button" id="btn-toggle-login-pass" class="btn-toggle-eye" title="Mostrar u ocultar contraseña" aria-label="Mostrar u ocultar contraseña">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="login-error-msg" class="login-error" role="alert" hidden></div>
+
+                <button type="submit" id="btn-login-email-submit" class="ds-btn ds-btn-primary lg block">Iniciar sesión</button>
+            </form>
+
+            <div class="login-divider"><span>O</span></div>
+
+            <button type="button" id="btn-login-google" class="btn-google-login">
+                <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                Continuar con Google
+            </button>
+
+            <div class="login-ayuda">
+                ¿Olvidaste tu contraseña?<br>
+                Contactá al administrador para restablecerla.
+            </div>
+        </div>
+    </div>
 
     <!-- ===== MAIN APP ===== -->
     <div id="app">
+        <!-- WIDGET DE USUARIO (mismo formato que Admisión, arriba a la derecha) -->
+        <div id="user-header-widget-wrapper" class="user-widget-wrapper">
+            <button type="button" class="user-top-widget" id="user-top-btn" title="Opciones de perfil" aria-haspopup="true" aria-expanded="false" aria-controls="profile-popover">
+                <span class="user-widget-info">
+                    <span class="widget-user-name" id="widget-user-name">Usuario</span>
+                    <span class="widget-role-badge" id="widget-role-badge"></span>
+                </span>
+                <span class="user-avatar-circle" id="widget-user-avatar" aria-hidden="true"></span>
+            </button>
+
+            <!-- MENÚ DESPLEGABLE DEL PERFIL -->
+            <div class="google-profile-popover" id="profile-popover" role="menu">
+                <div class="popover-header">
+                    <div class="popover-avatar-big" id="popover-avatar" aria-hidden="true"></div>
+                    <div class="popover-name" id="popover-name"></div>
+                    <div class="popover-email" id="popover-email"></div>
+                </div>
+                <div class="popover-body">
+                    <div class="popover-apps-section">
+                        <div class="popover-section-title">Tus aplicaciones</div>
+                        <div class="popover-apps" id="popover-apps"></div>
+                    </div>
+                    <div class="popover-links">
+                        <button type="button" class="popover-link-item" id="popover-link-cambiar-pass" role="menuitem">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+                            <span>Cambiar contraseña</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="popover-footer">
+                    <button type="button" class="btn-popover-logout" id="btn-cerrar-sesion" role="menuitem">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                        <span>Cerrar sesión</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <header id="main-header">
             <img src="logo.png" alt="Mandala Ensambles" id="main-logo">
         </header>
@@ -48,9 +133,14 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <!-- ===== VERSIÓN (PEQUEÑO Y EN GRIS ABAJO A LA IZQUIERDA) ===== -->
-    <div class="app-version-text" aria-label="Versión del sistema">v1.0</div>
+    <div class="app-version-text" id="app-version" aria-label="Versión del sistema"></div>
 
-    <!-- ===== BOTÓN CONFIGURAR ===== -->
+    <!-- ===== BOTONES DE ADMINISTRADOR (abajo a la derecha) ===== -->
+    <div class="acciones-admin solo-admin">
+    <button id="btn-revisar-accesos" class="btn-config" aria-label="Revisar accesos de usuarios">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Revisar accesos
+    </button>
     <button id="btn-config" class="btn-config" aria-label="Configurar módulos">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"></circle>
@@ -58,6 +148,55 @@
         </svg>
         Configurar
     </button>
+    </div>
+
+    <!-- ===== VENTANA: CAMBIO OBLIGATORIO DE LA CLAVE INICIAL ===== -->
+    <div id="modal-cambio-clave" class="ds-overlay" role="dialog" aria-modal="true" aria-labelledby="titulo-cambio-clave" hidden>
+        <form id="form-cambio-clave" class="ds-modal ds-modal-chico" novalidate>
+            <div class="ds-modal-head">
+                <h3 id="titulo-cambio-clave">Cambiá tu contraseña</h3>
+            </div>
+            <p class="texto-ayuda" id="texto-cambio-clave">Estás usando la contraseña inicial. Por seguridad, elegí una nueva antes de continuar. La vas a usar también en Admisión y Festivales.</p>
+            <div class="ds-field">
+                <label for="clave-actual">Contraseña actual</label>
+                <input type="password" id="clave-actual" class="ds-input" autocomplete="current-password" required>
+            </div>
+            <div class="ds-field">
+                <label for="clave-nueva">Nueva contraseña</label>
+                <input type="password" id="clave-nueva" class="ds-input" autocomplete="new-password" required minlength="6">
+            </div>
+            <div class="ds-field">
+                <label for="clave-repetir">Repetí la nueva contraseña</label>
+                <input type="password" id="clave-repetir" class="ds-input" autocomplete="new-password" required minlength="6">
+            </div>
+            <div id="cambio-clave-error" class="login-error" role="alert" hidden></div>
+            <div class="ds-modal-foot">
+                <button type="button" id="btn-cambio-clave-salir" class="ds-btn ds-btn-secondary">Cerrar sesión</button>
+                <button type="submit" id="btn-cambio-clave-ok" class="ds-btn ds-btn-primary">Cambiar contraseña</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===== VENTANA: REVISAR ACCESOS (solo administrador) ===== -->
+    <div id="modal-accesos" class="ds-overlay" role="dialog" aria-modal="true" aria-labelledby="titulo-accesos" hidden>
+        <div class="ds-modal ds-modal-ancho">
+            <div class="ds-modal-head">
+                <div>
+                    <h3 id="titulo-accesos">Revisar accesos</h3>
+                    <p class="texto-ayuda">A qué aplicaciones entra cada usuario, calculado a partir de sus roles actuales. Al guardar se completa el campo de acceso de cada ficha; no se cambia ningún rol ni se quita ningún acceso.</p>
+                </div>
+                <button type="button" id="btn-accesos-cerrar-x" class="ds-kebab" aria-label="Cerrar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div id="accesos-resumen" class="accesos-resumen"></div>
+            <div id="accesos-lista" class="accesos-lista"></div>
+            <div class="ds-modal-foot">
+                <button type="button" id="btn-accesos-cerrar" class="ds-btn ds-btn-secondary">Cerrar</button>
+                <button type="button" id="btn-accesos-guardar" class="ds-btn ds-btn-primary" disabled>Guardar accesos</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ===== MODAL DE CONFIGURACIÓN MASTER-DETAIL (2 COLUMNAS) ===== -->
     <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -140,6 +279,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=2.0"></script>
+    <script type="module" src="app.js?v=1.2"></script>
 </body>
 </html>
