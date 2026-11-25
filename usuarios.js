@@ -17,8 +17,8 @@ import {
     collection, getDocs, doc, updateDoc, addDoc, setDoc, query, where
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import {
-    IDS_APPS, APPS_CON_ACCESO, ROLES_POR_APP, EMAIL_CUENTA_EMERGENCIA,
-    listaRoles, rolesCanonicos, appsEfectivas, appDeRol,
+    IDS_APPS, APPS_CON_ACCESO, ROLES_POR_APP, EMAIL_CUENTA_EMERGENCIA, APPS_SIN_ROL_OBLIGATORIO,
+    listaRoles, rolesCanonicos, appsEfectivas, appsSinRol, appsDelRol,
     formularioDesdeFicha, validarFormulario, calcularGuardado, construirListaAcceso
 } from "./permisos.js";
 import { CLAVE_INICIAL_DEFECTO } from "./acceso.js";
@@ -27,7 +27,32 @@ const COL = 'usuarios_sistema';
 const SVG_TILDE = '<svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
 const SVG_DESACTIVAR = '<svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>';
 const SVG_REACTIVAR = '<svg class="ico-linea" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15-6.7L3 8M3 3v5h5"/></svg>';
-const CLASE_APP = { admision: '', festival: 'fest' };
+const CLASE_APP = { admision: '', festival: 'fest', docentes: 'doc' };
+
+/* v1.6: roles compartidos que se muestran también en el bloque de otra app (casilla "espejo": es el mismo rol) */
+const ROLES_ESPEJO = { docentes: [['docente', 'Docente', 'Es el mismo rol Docente de Admisión.']] };
+/* Apps que muestran una columna "Acceso" en la tabla (su rol se comparte con otra app, así que el tilde de rol no alcanza) */
+const APPS_COLUMNA_ACCESO = ['docentes', ...APPS_SIN_ROL_OBLIGATORIO];
+
+/* Columnas de la tabla: General (admin) + por app (Acceso, roles espejo y roles propios) + Estado + acción */
+function columnasApp(id) {
+    const cols = [];
+    if (APPS_COLUMNA_ACCESO.includes(id)) cols.push({ tipo: 'acceso', corto: 'Acceso', titulo: `Acceso a ${APPS_CON_ACCESO[id].nombre}` });
+    (ROLES_ESPEJO[id] || []).forEach(r => cols.push({ tipo: 'rol', rol: r[0], corto: ROL_CORTO[r[0]] || r[1], titulo: `${r[1]} (mismo rol que en Admisión)` }));
+    ROLES_POR_APP[id].forEach(r => cols.push({ tipo: 'rol', rol: r[0], corto: ROL_CORTO[r[0]] || r[1], titulo: r[1] }));
+    return cols;
+}
+function totalColumnas() {
+    return 2 + IDS_APPS.reduce((n, id) => n + columnasApp(id).length, 0) + 2;
+}
+function pintarEncabezado() {
+    const esc = ctx.escHtml;
+    const fila1 = `<tr><th class="q"></th><th class="grp gen sep">General</th>${IDS_APPS.map(id =>
+        `<th class="grp ${CLASE_APP[id]} sep" colspan="${columnasApp(id).length}">${esc(APPS_CON_ACCESO[id].nombre)}</th>`).join('')}<th class="sep"></th><th></th></tr>`;
+    const fila2 = `<tr><th class="q">Usuario</th><th class="sep" title="Administrador general: entra a todas las apps">Admin.</th>${IDS_APPS.map(id =>
+        columnasApp(id).map((c, k) => `<th class="${k === 0 ? 'sep' : ''}" title="${esc(c.titulo)}">${esc(c.corto)}</th>`).join('')).join('')}<th class="sep">Estado</th><th></th></tr>`;
+    document.getElementById('usu-thead').innerHTML = fila1 + fila2;
+}
 const ROL_CORTO = {
     admisor: 'Admisor', coordinador_grupos: 'Coord.', docente: 'Docente', atencion_cliente: 'Atención',
     gestor_festivales: 'Gestor', sonidista_festivales: 'Sonido', planificador_clases: 'Planif.'
@@ -116,14 +141,14 @@ export function ocultarUsuarios() {
 
 async function recargar() {
     const cuerpo = document.getElementById('usu-cuerpo');
-    cuerpo.innerHTML = `<tr><td colspan="11"><div class="abm-vacio">Cargando usuarios…</div></td></tr>`;
+    cuerpo.innerHTML = `<tr><td colspan="${totalColumnas()}"><div class="abm-vacio">Cargando usuarios…</div></td></tr>`;
     try {
         fichas = await leerFichas();
         cargado = true;
         pintarTabla();
     } catch (e) {
         console.warn('[MDL Core] No se pudieron leer los usuarios:', e);
-        cuerpo.innerHTML = `<tr><td colspan="11"><div class="abm-vacio">No se pudieron leer los usuarios (${ctx.escHtml(e.code || e.message || 'error')}).</div></td></tr>`;
+        cuerpo.innerHTML = `<tr><td colspan="${totalColumnas()}"><div class="abm-vacio">No se pudieron leer los usuarios (${ctx.escHtml(e.code || e.message || 'error')}).</div></td></tr>`;
     }
 }
 
@@ -135,8 +160,7 @@ function iniciales(nombre) {
 }
 
 function accesoSinRol(f) {
-    const form = formularioDesdeFicha(f);
-    return !form.admin && IDS_APPS.some(id => form.apps[id] && !(id === 'admision' && form.personalizado) && !form.roles.some(r => appDeRol(r) === id));
+    return appsSinRol(formularioDesdeFicha(f)).length > 0;
 }
 
 function filasFiltradas() {
@@ -171,8 +195,12 @@ function pintarTabla() {
         const nombre = f.nombre || String(f.email || '').split('@')[0] || '(sin nombre)';
         const repetido = conteoEmail[String(f.email || '').toLowerCase()] > 1;
         const esYo = yo && String(f.email || '').toLowerCase() === yo.email;
-        const celdasApp = IDS_APPS.map(id => ROLES_POR_APP[id].map((r, k) =>
-            `<td class="${k === 0 ? 'sep' : ''}">${tilde(roles.includes(r[0]), CLASE_APP[id], r[1])}</td>`).join('')).join('');
+        const apps = appsEfectivas(f);
+        const esAdminF = roles.includes('admin');
+        const celdasApp = IDS_APPS.map(id => columnasApp(id).map((c, k) => {
+            const si = c.tipo === 'acceso' ? (esAdminF || apps.includes(id)) : roles.includes(c.rol);
+            return `<td class="${k === 0 ? 'sep' : ''}">${tilde(si, CLASE_APP[id], c.titulo)}</td>`;
+        }).join('')).join('');
         const accion = esYo || f.email === EMAIL_CUENTA_EMERGENCIA
             ? ''
             : `<button type="button" class="ds-icon-btn js-estado" data-id="${esc(f.id)}" title="${activo ? 'Desactivar' : 'Reactivar'}">${activo ? SVG_DESACTIVAR : SVG_REACTIVAR}</button>`;
@@ -183,7 +211,7 @@ function pintarTabla() {
             <td class="sep fin"><span class="abm-est ${activo ? '' : 'off'}">${activo ? 'Activo' : 'Inactivo'}</span></td>
             <td class="acc">${accion}</td>
         </tr>`;
-    }).join('') || `<tr><td colspan="11"><div class="abm-vacio">No hay usuarios con ese filtro.</div></td></tr>`;
+    }).join('') || `<tr><td colspan="${totalColumnas()}"><div class="abm-vacio">No hay usuarios con ese filtro.</div></td></tr>`;
 }
 
 /* ================================================================
@@ -199,11 +227,13 @@ function pintarBloquesApps() {
             </div>
             <div class="app-acceso-roles ${CLASE_APP[id]}">
                 <div class="abm-user-roles">
-                    ${ROLES_POR_APP[id].map(r => `<label class="abm-rol"><input type="checkbox" class="usu-chk-rol" value="${r[0]}"><span><b>${esc(r[1])}</b><small>${esc(r[2])}</small></span></label>`).join('')}
+                    ${[...(ROLES_ESPEJO[id] || []), ...ROLES_POR_APP[id]].map(r => `<label class="abm-rol"><input type="checkbox" class="usu-chk-rol" value="${r[0]}"><span><b>${esc(r[1])}</b><small>${esc(r[2])}</small></span></label>`).join('')}
                 </div>
                 ${id === 'admision' ? `
                 <div class="usu-aviso-app" id="usu-aviso-personalizado" hidden>No tiene rol: usa <b>módulos personalizados</b> elegidos en Admisión. Podés asignarle un rol o dejarlo así.</div>
                 <div class="usu-aviso-app">Los módulos personalizados, las aptitudes, los instrumentos y la disponibilidad se ajustan en <b>Admisión → Configuración → Usuarios</b>.</div>` : ''}
+                ${id === 'docentes' ? `
+                <div class="usu-aviso-app">Para entrar hace falta el rol <b>Docente</b> (ve solo sus clases) o <b>Planificador de clases</b> (ve las de todos).</div>` : ''}
             </div>
         </div>`).join('');
 }
@@ -218,7 +248,8 @@ function leerFormulario() {
         activo: document.getElementById('usu-activo').checked,
         admin: document.getElementById('usu-admin').checked,
         apps,
-        roles: [...document.querySelectorAll('.usu-chk-rol:checked')].map(c => c.value),
+        // Las casillas espejo (Docente en Admisión y en Docentes) son el mismo rol: se cuenta una sola vez
+        roles: [...new Set([...document.querySelectorAll('.usu-chk-rol:checked')].map(c => c.value))],
         personalizado: actual ? formularioDesdeFicha(actual).personalizado : false
     };
 }
@@ -493,6 +524,7 @@ function responderConfirmar(valor) {
    EVENTOS
    ================================================================ */
 function bindEventos() {
+    pintarEncabezado();
     pintarBloquesApps();
 
     document.getElementById('usu-buscar').addEventListener('input', (e) => { busqueda = e.target.value; pintarTabla(); });
@@ -520,10 +552,17 @@ function bindEventos() {
     document.getElementById('usu-btn-reset').addEventListener('click', restablecerClave);
     document.getElementById('modal-usuario').addEventListener('input', () => { actualizarVentana(); marcarCambios(true); mostrarErrores([]); });
     document.getElementById('modal-usuario').addEventListener('change', (e) => {
-        // Al apagar una app se desmarcan sus roles
+        // Casilla espejo: marcar o desmarcar un rol cambia todas sus casillas (Docente en Admisión y en Docentes)
+        if (e.target.classList.contains('usu-chk-rol')) {
+            document.querySelectorAll(`.usu-chk-rol[value="${e.target.value}"]`).forEach(c => { c.checked = e.target.checked; });
+        }
+        // Al apagar una app se desmarcan los roles que ya no cuentan para ninguna app activa
+        // (Docente se conserva mientras Admisión o Docentes estén activas)
         if (e.target.classList.contains('usu-sw-app') && !e.target.checked) {
-            const id = e.target.dataset.app;
-            document.querySelectorAll('.usu-chk-rol').forEach(c => { if (appDeRol(c.value) === id) c.checked = false; });
+            const activas = [...document.querySelectorAll('.usu-sw-app:checked')].map(sw => sw.dataset.app);
+            document.querySelectorAll('.usu-chk-rol').forEach(c => {
+                if (!appsDelRol(c.value).some(app => activas.includes(app))) c.checked = false;
+            });
         }
         actualizarVentana();
         marcarCambios(true);
