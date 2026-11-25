@@ -1,15 +1,18 @@
 /* ================================================================
-   MANDALA ENSAMBLES – Service Worker v1.1
+   MANDALA ENSAMBLES – Service Worker de MDL Core
    Estrategia: Network First (prioriza siempre contenido fresco)
+   Cambiar CACHE_NAME en cada versión (igual que APP_VERSION en app.js)
    ================================================================ */
 
-const CACHE_NAME = 'mdl-central-v2.0';
+const CACHE_NAME = 'mdl-central-v1.2';
 
 const ASSETS = [
     './',
     './index.html',
     './styles.css',
     './app.js',
+    './acceso.js',
+    './permisos.js',
     './logo.png',
     './manifest.json'
 ];
@@ -37,6 +40,8 @@ self.addEventListener('activate', (event) => {
 /* ---- Fetch: Network First (intenta red, fallback a cache) ---- */
 self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET') return;
+    // v1.1: solo archivos propios; Firebase (sesión y base de datos) va siempre directo a la red
+    if (new URL(event.request.url).origin !== self.location.origin) return;
     event.respondWith(
         fetch(event.request)
             .then((networkResponse) => {
