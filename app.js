@@ -19,7 +19,7 @@ import {
 import { iniciarUsuarios, mostrarUsuarios, ocultarUsuarios } from "./usuarios.js";
 
 /* Versión de Core: se sube en cada desarrollo y se registra en CAMBIOS_core.md */
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 
 /* ----------------------------------------------------------------
    CONFIGURACIÓN FIREBASE (Mandala Ensambles)
