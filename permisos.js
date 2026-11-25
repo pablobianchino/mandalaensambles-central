@@ -11,9 +11,9 @@
      Se guarda en usuarios_sistema/{id}.apps_habilitadas, por ejemplo ['admision', 'festival'].
    - Nivel 2 (dentro de cada app): qué puede hacer adentro (módulos, aptitudes, sonidista…).
 
-   Transición (v1.1): mientras Admisión y Festival sigan asignando roles, el acceso efectivo
-   es la UNIÓN de apps_habilitadas y lo que se deduce de los roles. Así nadie pierde acceso
-   por un usuario creado o editado desde Admisión que todavía no tenga el campo nuevo.
+   v1.4 (etapa 3): Core es la única fuente de los accesos. Si la ficha tiene apps_habilitadas,
+   el acceso es exactamente ese campo; solo las fichas sin el campo se deducen de los roles
+   (mismo respaldo que usan Admisión v8.21 y Festivales v2.14).
    ================================================================ */
 
 /* Aplicaciones que controla Core y los roles que hoy dan acceso a cada una
@@ -67,9 +67,11 @@ export function appsGuardadas(u) {
     return ordenarApps(u.apps_habilitadas.map(normalizar).filter(id => IDS_APPS.includes(id)));
 }
 
-/* Acceso efectivo durante la transición: unión de lo guardado y lo deducido de los roles */
+/* Acceso efectivo (v1.4): el campo apps_habilitadas si existe; si no, lo que dan los roles.
+   El administrador entra a todo (se resuelve en armarPerfil y en el formulario). */
 export function appsEfectivas(u) {
-    return ordenarApps([...new Set([...appsGuardadas(u), ...appsSegunRoles(u)])]);
+    if (u && Array.isArray(u.apps_habilitadas)) return appsGuardadas(u);
+    return appsSegunRoles(u);
 }
 
 export function ordenarApps(apps) {
