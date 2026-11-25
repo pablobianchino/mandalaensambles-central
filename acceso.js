@@ -13,7 +13,7 @@ import {
     onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential, updatePassword
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 import {
-    collection, getDocs, query, where, doc, updateDoc, writeBatch
+    collection, getDocs, query, where, doc, updateDoc
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { armarPerfil } from "./permisos.js";
 
@@ -31,6 +31,10 @@ export function iniciarAcceso(app, firestore) {
     db = firestore;
     provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+    return auth;
+}
+
+export function obtenerAuth() {
     return auth;
 }
 
@@ -164,25 +168,4 @@ export async function consultarPerfil(email) {
     }
 }
 
-/* ----------------------------------------------------------------
-   HERRAMIENTA DE ADMINISTRADOR: completar apps_habilitadas
-   ---------------------------------------------------------------- */
-export async function leerTodosLosUsuarios() {
-    const snap = await getDocs(collection(db, COLECCION_USUARIOS));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-/* cambios: [{ id, apps }] — solo escribe apps_habilitadas y su fecha, nada más de la ficha */
-export async function guardarAppsHabilitadas(cambios) {
-    const fecha = new Date().toISOString();
-    let escritos = 0;
-    for (let i = 0; i < cambios.length; i += 400) {
-        const lote = writeBatch(db);
-        cambios.slice(i, i + 400).forEach(c => {
-            lote.update(doc(db, COLECCION_USUARIOS, c.id), { apps_habilitadas: c.apps, fecha_actualizacion_accesos: fecha });
-        });
-        await lote.commit();
-        escritos += Math.min(400, cambios.length - i);
-    }
-    return escritos;
-}
+/* v1.3: la herramienta "Revisar accesos" (etapa 0) se retiró; la gestión completa está en usuarios.js */
