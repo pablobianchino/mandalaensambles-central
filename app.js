@@ -19,7 +19,7 @@ import {
 import { iniciarUsuarios, mostrarUsuarios, ocultarUsuarios } from "./usuarios.js";
 
 /* Versión de Core: se sube en cada desarrollo y se registra en CAMBIOS_core.md */
-const APP_VERSION = 'v1.4';
+const APP_VERSION = 'v1.5';
 
 /* ----------------------------------------------------------------
    CONFIGURACIÓN FIREBASE (Mandala Ensambles)
@@ -308,19 +308,31 @@ function mostrarEstado(estado) {
     document.body.classList.add(`estado-${estado}`);
 }
 
+/* v1.5: pantalla de carga inicial (definida en index.html, igual que en Admisión) */
+const mostrarSplash = () => { if (typeof window.mostrarSplashInicial === 'function') window.mostrarSplashInicial(); };
+const ocultarSplash = () => { if (typeof window.ocultarSplashInicial === 'function') window.ocultarSplashInicial(); };
+
 async function manejarCambioSesion(user) {
     if (!user) {
         usuarioActual = null;
         document.body.classList.remove('es-admin');
         cerrarVentanasDeSesion();
         mostrarEstado('login');
+        ocultarSplash();
         return;
     }
 
     mostrarEstado('cargando');
-    const { estado, perfil } = await consultarPerfil(user.email);
+    mostrarSplash(); // al iniciar sesión vuelve a aparecer mientras se lee el perfil
+    let estado, perfil;
+    try {
+        ({ estado, perfil } = await consultarPerfil(user.email));
+    } catch (e) {
+        estado = 'error';
+    }
 
     if (estado !== 'ok') {
+        ocultarSplash();
         const mensajes = {
             sin_perfil: 'Tu cuenta no tiene un perfil en el sistema de Mandala. Pedile al administrador que te dé de alta.',
             inactivo: 'Tu usuario está inactivo. Si creés que es un error, hablá con el administrador.',
@@ -338,6 +350,7 @@ async function manejarCambioSesion(user) {
     renderModules();
     mostrarEstado('app');
     aplicarRuta();
+    ocultarSplash();
 
     if (!syncIniciada) {
         syncIniciada = true;
