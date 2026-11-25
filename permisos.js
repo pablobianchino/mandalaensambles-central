@@ -169,3 +169,167 @@ export function etiquetaAcceso(acceso) {
     if (acceso === ACCESO_SOLO_ADMIN) return 'Solo administradores';
     return APPS_CON_ACCESO[acceso] ? `Con acceso a ${APPS_CON_ACCESO[acceso].nombre}` : acceso;
 }
+
+/* ================================================================
+   v1.3 – GESTIÓN DE USUARIOS DESDE CORE (etapa 2)
+   Lógica pura del guardado: roles por app, módulos de Admisión y lista de acceso.
+   ================================================================ */
+
+/* Roles que se asignan desde Core, por aplicación (id, nombre, descripción) */
+export const ROLES_POR_APP = {
+    admision: [
+        ['admisor', 'Admisor', 'Inbox, lista de espera, Match, altas, seguimientos y métricas.'],
+        ['coordinador_grupos', 'Coordinador de grupos', 'Match, altas y seguimientos. Edita perfil y disponibilidad de otros.'],
+        ['docente', 'Docente', 'Portal docente. Su perfil, aptitudes y disponibilidad se cargan en Admisión.'],
+        ['atencion_cliente', 'Atención al cliente', 'Solo Inbox.']
+    ],
+    festival: [
+        ['gestor_festivales', 'Gestor de Festivales', 'Acceso completo a Festivales.'],
+        ['sonidista_festivales', 'Sonidista', 'Rider técnico y REC de los eventos en curso.'],
+        ['planificador_clases', 'Planificador de clases', 'Eventos en lectura y Planificación de clases.']
+    ]
+};
+
+/* Nombres viejos de roles que todavía pueden estar en algunas fichas → rol actual */
+export const ROLES_EQUIVALENTES = { admisiones: 'admisor', coordinador: 'coordinador_grupos', profesor: 'docente', evaluador: 'docente' };
+
+/* Copia exacta de ROLES_MODULOS de Admisión (src/modules/abm.module.js). Si cambia allá, cambiar acá. */
+export const ROLES_MODULOS = {
+    admin: ['dashboard', 'inbox', 'espera', 'match', 'match_etapa4', 'altas', 'seguimientos', 'suspendidos', 'metricas', 'portal_profesor', 'configuracion', 'permisos'],
+    admisor: ['dashboard', 'inbox', 'espera', 'match', 'match_etapa4', 'altas', 'seguimientos', 'suspendidos', 'metricas'],
+    admisiones: ['dashboard', 'inbox', 'espera', 'match', 'match_etapa4', 'altas', 'seguimientos', 'suspendidos', 'metricas'],
+    coordinador_grupos: ['dashboard', 'espera', 'match', 'match_etapa4', 'altas', 'seguimientos', 'suspendidos', 'configuracion'],
+    coordinador: ['dashboard', 'espera', 'match', 'match_etapa4', 'altas', 'seguimientos', 'suspendidos', 'configuracion'],
+    evaluador: ['dashboard', 'inbox', 'seguimientos'],
+    atencion_cliente: ['inbox'],
+    gestor_festivales: [],
+    sonidista_festivales: [],
+    planificador_clases: [],
+    docente: ['portal_profesor'],
+    profesor: ['portal_profesor'],
+    personalizado: []
+};
+const ORDEN_MODULOS = ROLES_MODULOS.admin;
+
+const ROLES_DE_APPS = Object.values(ROLES_POR_APP).flat().map(r => r[0]);
+const ROLES_FESTIVAL = ROLES_POR_APP.festival.map(r => r[0]);
+/* Roles que maneja Core: al guardar se reemplazan; cualquier otro rol de la ficha se conserva */
+const ROLES_GESTIONADOS = new Set(['admin', ...ROLES_DE_APPS, ...Object.keys(ROLES_EQUIVALENTES)]);
+
+export function appDeRol(rol) {
+    return IDS_APPS.find(id => ROLES_POR_APP[id].some(r => r[0] === rol)) || null;
+}
+
+/* Roles actuales de la ficha con los nombres viejos convertidos (para marcar las casillas) */
+export function rolesCanonicos(u) {
+    return [...new Set(listaRoles(u).map(r => ROLES_EQUIVALENTES[r] || r))];
+}
+
+export function modulosSegunRoles(roles) {
+    const s = new Set();
+    (roles || []).forEach(r => (ROLES_MODULOS[r] || []).forEach(m => s.add(m)));
+    return [...s].sort((a, b) => ORDEN_MODULOS.indexOf(a) - ORDEN_MODULOS.indexOf(b));
+}
+
+function mismosElementos(a, b) {
+    const x = new Set(a || []);
+    const y = new Set(b || []);
+    return x.size === y.size && [...x].every(v => y.has(v));
+}
+
+/* Estado del formulario a partir de una ficha (o vacío para un usuario nuevo) */
+export function formularioDesdeFicha(u) {
+    const roles = rolesCanonicos(u || {});
+    const admin = roles.includes('admin');
+    const appsFicha = u ? appsEfectivas(u) : [];
+    const apps = {};
+    IDS_APPS.forEach(id => { apps[id] = admin || appsFicha.includes(id); });
+    return {
+        nombre: (u && u.nombre) || '',
+        email: (u && u.email) || '',
+        celular: (u && u.celular) || '',
+        activo: u ? u.activo !== false : true,
+        admin,
+        apps,
+        roles: roles.filter(r => ROLES_DE_APPS.includes(r)),
+        // "Personalizado" de Admisión: sin rol, con módulos elegidos a mano (cuenta como acceso válido a Admisión)
+        personalizado: roles.includes('personalizado') && Array.isArray(u && u.modulos_habilitados) && u.modulos_habilitados.length > 0
+    };
+}
+
+/* Errores que impiden guardar (lista vacía = se puede guardar) */
+export function validarFormulario(form, esNuevo) {
+    const errores = [];
+    if (esNuevo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email || '').trim())) errores.push('Ingresá un correo válido.');
+    if (!String(form.nombre || '').trim()) errores.push('Ingresá el nombre.');
+    if (!form.admin) {
+        IDS_APPS.forEach(id => {
+            if (id === 'admision' && form.personalizado) return;
+            if (form.apps[id] && !form.roles.some(r => appDeRol(r) === id)) {
+                errores.push(`Elegí al menos un rol en ${APPS_CON_ACCESO[id].nombre} o desactivá su acceso.`);
+            }
+        });
+    }
+    return errores;
+}
+
+/* Campos que se escriben en usuarios_sistema. `ficha` es la ficha actual (null si es nueva). */
+export function calcularGuardado(ficha, form) {
+    const rolesViejos = ficha ? listaRoles(ficha) : [];
+    const appsActivas = form.admin ? [...IDS_APPS] : IDS_APPS.filter(id => form.apps[id]);
+
+    // Roles de las apps activas (el administrador conserva además los roles que tenga marcados)
+    const rolesApps = (form.roles || []).filter(r => ROLES_DE_APPS.includes(r) && appsActivas.includes(appDeRol(r)));
+    // Roles que no maneja Core (por ejemplo "personalizado"): se conservan, salvo que ya no tenga Admisión
+    const otros = rolesViejos.filter(r => !ROLES_GESTIONADOS.has(r) && !(r === 'personalizado' && (!appsActivas.includes('admision') || rolesApps.length > 0 || form.admin)));
+    let roles = [...new Set([...(form.admin ? ['admin'] : []), ...rolesApps, ...otros])];
+    if (roles.length === 0) roles = ['personalizado']; // mismo criterio que Admisión
+
+    // Rol principal: mismo criterio que Admisión (el primero que no sea de Festivales)
+    const rol = roles.find(r => !ROLES_FESTIVAL.includes(r)) || roles[0];
+
+    const datos = {
+        nombre: String(form.nombre || '').trim(),
+        celular: String(form.celular || '').trim(),
+        activo: Boolean(form.activo),
+        roles,
+        rol,
+        apps_habilitadas: appsActivas
+    };
+
+    // Módulos de Admisión: si estaban "según los roles" (o no había), se recalculan; si eran personalizados, se respetan
+    const modsActuales = ficha && Array.isArray(ficha.modulos_habilitados) ? ficha.modulos_habilitados : null;
+    if (!modsActuales || mismosElementos(modsActuales, modulosSegunRoles(rolesViejos))) {
+        datos.modulos_habilitados = modulosSegunRoles(roles);
+    }
+    return datos;
+}
+
+/* Documento acceso/lista: copia exacta de sincronizarListaAcceso() de Admisión, en versión pura */
+export function construirListaAcceso(fichas) {
+    const emails = new Set(), admins = new Set(), festivales = new Set(), sonidistas = new Set(), planificadores = new Set(), coordinadores = new Set();
+    (fichas || []).forEach(u => {
+        const e = (u.email || '').toLowerCase().trim();
+        if (!e || u.activo === false) return;
+        const roles = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : [u.rol || ''];
+        const esSonidistaU = roles.includes('sonidista_festivales');
+        const esPlanificadorU = roles.includes('planificador_clases');
+        const soloFestivalesU = (esSonidistaU || esPlanificadorU) && roles.every(r => !r || r === 'sonidista_festivales' || r === 'planificador_clases');
+        if (esSonidistaU) sonidistas.add(e);
+        if (esPlanificadorU) planificadores.add(e);
+        if (!soloFestivalesU) emails.add(e);
+        const esAdminU = roles.includes('admin') || u.rol === 'admin';
+        if (esAdminU) admins.add(e);
+        if (esAdminU || roles.includes('gestor_festivales')) festivales.add(e);
+        if (roles.includes('coordinador') || roles.includes('coordinador_grupos') || u.rol === 'coordinador' || u.rol === 'coordinador_grupos') coordinadores.add(e);
+    });
+    return {
+        emails: [...emails].sort(),
+        admins: [...admins].sort(),
+        festivales: [...festivales].sort(),
+        sonidistas: [...sonidistas].sort(),
+        planificadores: [...planificadores].sort(),
+        coordinadores: [...coordinadores].sort(),
+        actualizado: new Date().toISOString()
+    };
+}
