@@ -1,12 +1,25 @@
 'use strict';
 
 /* ================================================================
-   MANDALA ENSAMBLES – Panel Central (MDL Core) v2.0
-   app.js – Sincronización Cloud Firestore, Master-Detail & Categorías
+   MANDALA ENSAMBLES – Panel Central (MDL Core)
+   app.js – Inicio de sesión, tarjetas según acceso, Master-Detail & Categorías
+   Historial de cambios: CAMBIOS_core.md
    ================================================================ */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import {
+    iniciarAcceso, alCambiarSesion, loginConEmail, loginConGoogle, cerrarSesion, esSesionConPassword,
+    cambiarPassword, marcarPasswordModificada, consultarPerfil, leerTodosLosUsuarios, guardarAppsHabilitadas,
+    CLAVE_INICIAL_DEFECTO
+} from "./acceso.js";
+import {
+    APPS_CON_ACCESO, IDS_APPS, ACCESO_SOLO_ADMIN, ACCESO_TODOS, accesoDeModulo, puedeVerModulo, etiquetaAcceso,
+    listaRoles, appsGuardadas, appsPropuestas, mismasApps
+} from "./permisos.js";
+
+/* Versión de Core: se sube en cada desarrollo y se registra en CAMBIOS_core.md */
+const APP_VERSION = 'v1.2';
 
 /* ----------------------------------------------------------------
    CONFIGURACIÓN FIREBASE (Mandala Ensambles)
@@ -23,6 +36,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const CONFIG_DOC_REF = doc(db, "config_app_central", "portal_central");
+iniciarAcceso(app, db);
 
 /* ----------------------------------------------------------------
    CATÁLOGO DE ÍCONOS VECTORIALES (SVG NÍTIDOS)
@@ -166,15 +180,18 @@ function normalizeModule(m) {
         }
     }
 
-    return {
+    const mod = {
         id: m.id || generateId(),
         type: m.type === 'web' ? 'web' : 'app',
         title: (m.title || '').trim(),
         description: (m.description || '').trim(),
         icon: iconKey,
         url: (m.url || '').trim(),
-        hidden: Boolean(m.hidden)
+        hidden: Boolean(m.hidden),
+        // v1.1: quién ve la tarjeta ('admision', 'festival', 'todos' o 'admin'); vacío = se deduce por la URL
+        acceso_app: typeof m.acceso_app === 'string' ? m.acceso_app : ''
     };
+    return mod;
 }
 
 function buildDefaultConfig() {
@@ -240,16 +257,356 @@ let currentIconCategory = 'todas';
 let toastTimer = null;
 let isModalOpen = false;
 
+/* Sesión: perfil del usuario que ingresó (null = sin sesión) */
+let usuarioActual = null;
+let syncIniciada = false;
+
 /* ================================================================
    ARRANQUE
    ================================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+    const versionEl = document.getElementById('app-version');
+    if (versionEl) versionEl.textContent = APP_VERSION;
+
     loadLocalFallback();
-    renderModules();
     bindGlobalEvents();
-    initFirebaseSync();
+    bindAccesoEvents();
     registerServiceWorker();
+    alCambiarSesion(manejarCambioSesion);
 });
+
+/* ================================================================
+   SESIÓN Y ACCESO
+   ================================================================ */
+function mostrarEstado(estado) {
+    // estado: 'cargando' | 'login' | 'app'
+    document.body.classList.remove('estado-cargando', 'estado-login', 'estado-app');
+    document.body.classList.add(`estado-${estado}`);
+}
+
+async function manejarCambioSesion(user) {
+    if (!user) {
+        usuarioActual = null;
+        document.body.classList.remove('es-admin');
+        cerrarVentanasDeSesion();
+        mostrarEstado('login');
+        return;
+    }
+
+    mostrarEstado('cargando');
+    const { estado, perfil } = await consultarPerfil(user.email);
+
+    if (estado !== 'ok') {
+        const mensajes = {
+            sin_perfil: 'Tu cuenta no tiene un perfil en el sistema de Mandala. Pedile al administrador que te dé de alta.',
+            inactivo: 'Tu usuario está inactivo. Si creés que es un error, hablá con el administrador.',
+            sin_permiso: 'No se pudo verificar tu acceso (permiso denegado). Avisale al administrador.',
+            error: 'No se pudo verificar tu acceso. Revisá tu conexión y volvé a intentar.'
+        };
+        await cerrarSesion();
+        mostrarErrorLogin(mensajes[estado] || mensajes.error);
+        return;
+    }
+
+    usuarioActual = perfil;
+    document.body.classList.toggle('es-admin', Boolean(perfil.esAdmin));
+    pintarBarraSesion(perfil);
+    renderModules();
+    mostrarEstado('app');
+
+    if (!syncIniciada) {
+        syncIniciada = true;
+        initFirebaseSync();
+    }
+
+    // Cambio obligatorio de la clave inicial (solo si se ingresó con correo y contraseña)
+    if (perfil.password_modificada === false && await esSesionConPassword(user)) {
+        abrirCambioClave();
+    }
+}
+
+/* ---- Widget de usuario (mismo formato que Admisión) ---- */
+const ETIQUETA_ROL_WIDGET = {
+    admin: 'Admin', admisor: 'Admisor', admisiones: 'Admisor', coordinador_grupos: 'Coordinador', coordinador: 'Coordinador',
+    evaluador: 'Evaluador', docente: 'Docente', profesor: 'Docente', atencion_cliente: 'Atención al Cliente',
+    gestor_festivales: 'Gestor de Festivales', sonidista_festivales: 'Sonidista', planificador_clases: 'Planificador'
+};
+const ICONO_ESTRELLA = '<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+
+function obtenerIniciales(nombre) {
+    return String(nombre || '').split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
+}
+
+function etiquetaRolPrincipal(perfil) {
+    if (perfil.esAdmin) return 'Admin';
+    const orden = Object.keys(ETIQUETA_ROL_WIDGET);
+    const rol = (perfil.roles || []).filter(r => ETIQUETA_ROL_WIDGET[r]).sort((a, b) => orden.indexOf(a) - orden.indexOf(b))[0];
+    return rol ? ETIQUETA_ROL_WIDGET[rol] : 'Usuario';
+}
+
+function pintarBarraSesion(perfil) {
+    const nombre = perfil.nombre || perfil.email;
+    const iniciales = obtenerIniciales(nombre);
+    const rol = etiquetaRolPrincipal(perfil);
+
+    document.getElementById('widget-user-name').textContent = nombre;
+    document.getElementById('widget-user-avatar').textContent = iniciales;
+    document.getElementById('widget-role-badge').innerHTML = `${perfil.esAdmin ? ICONO_ESTRELLA : ''}<span>${escHtml(rol)}</span><span class="widget-role-caret" aria-hidden="true">▾</span>`;
+
+    document.getElementById('popover-avatar').textContent = iniciales;
+    document.getElementById('popover-name').textContent = nombre;
+    document.getElementById('popover-email').textContent = perfil.email;
+
+    const apps = (perfil.apps || []).map(id => `<span class="ds-chip teal">${escHtml(APPS_CON_ACCESO[id]?.nombre || id)}</span>`);
+    document.getElementById('popover-apps').innerHTML = apps.length ? apps.join('') : '<span class="popover-sin-apps">Todavía no tenés aplicaciones habilitadas.</span>';
+}
+
+function abrirPopoverPerfil(abrir) {
+    const pop = document.getElementById('profile-popover');
+    const btn = document.getElementById('user-top-btn');
+    const mostrar = typeof abrir === 'boolean' ? abrir : !pop.classList.contains('show');
+    pop.classList.toggle('show', mostrar);
+    btn.setAttribute('aria-expanded', mostrar ? 'true' : 'false');
+}
+
+function mostrarErrorLogin(msg) {
+    const el = document.getElementById('login-error-msg');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.hidden = !msg;
+}
+
+function bindAccesoEvents() {
+    const form = document.getElementById('form-login-email');
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value.trim();
+        const pass = document.getElementById('login-password').value;
+        if (!email || !pass) {
+            mostrarErrorLogin('Completá tu correo y tu contraseña.');
+            return;
+        }
+        const btn = document.getElementById('btn-login-email-submit');
+        btn.disabled = true;
+        btn.textContent = 'Ingresando…';
+        mostrarErrorLogin('');
+        const res = await loginConEmail(email, pass);
+        btn.disabled = false;
+        btn.textContent = 'Iniciar sesión';
+        if (!res.ok) {
+            mostrarErrorLogin(res.error);
+            return;
+        }
+        document.getElementById('login-password').value = '';
+        // El resto lo hace manejarCambioSesion (onAuthStateChanged)
+    });
+
+    document.getElementById('btn-login-google')?.addEventListener('click', async () => {
+        mostrarErrorLogin('');
+        const res = await loginConGoogle();
+        if (!res.ok) mostrarErrorLogin(res.error);
+    });
+
+    document.getElementById('btn-toggle-login-pass')?.addEventListener('click', () => {
+        const input = document.getElementById('login-password');
+        input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    // Widget de usuario: abrir y cerrar el menú del perfil
+    document.getElementById('user-top-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        abrirPopoverPerfil();
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#user-header-widget-wrapper')) abrirPopoverPerfil(false);
+    });
+
+    document.getElementById('btn-cerrar-sesion')?.addEventListener('click', async () => {
+        abrirPopoverPerfil(false);
+        if (isModalOpen) closeModal();
+        await cerrarSesion();
+        showToast('Sesión cerrada');
+    });
+
+    document.getElementById('popover-link-cambiar-pass')?.addEventListener('click', () => {
+        abrirPopoverPerfil(false);
+        abrirCambioClave(false);
+    });
+
+    // Cambio de clave (obligatorio por clave inicial, o voluntario desde el perfil)
+    document.getElementById('form-cambio-clave')?.addEventListener('submit', enviarCambioClave);
+    document.getElementById('btn-cambio-clave-salir')?.addEventListener('click', async () => {
+        cerrarVentana('modal-cambio-clave');
+        if (cambioClaveForzado) await cerrarSesion();
+    });
+
+    // Revisar accesos (administrador)
+    document.getElementById('btn-revisar-accesos')?.addEventListener('click', abrirRevisarAccesos);
+    document.getElementById('btn-accesos-cerrar')?.addEventListener('click', () => cerrarVentana('modal-accesos'));
+    document.getElementById('btn-accesos-cerrar-x')?.addEventListener('click', () => cerrarVentana('modal-accesos'));
+    document.getElementById('btn-accesos-guardar')?.addEventListener('click', guardarAccesosRevisados);
+}
+
+function abrirVentana(id) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = false;
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarVentana(id) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+    if (!isModalOpen) document.body.style.overflow = '';
+}
+
+function cerrarVentanasDeSesion() {
+    abrirPopoverPerfil(false);
+    if (isModalOpen) closeModal();
+    cerrarVentana('modal-cambio-clave');
+    cerrarVentana('modal-accesos');
+}
+
+/* ---- Cambio de clave: obligatorio (clave inicial) o voluntario (desde el perfil) ---- */
+let cambioClaveForzado = false;
+
+function abrirCambioClave(forzado = true) {
+    cambioClaveForzado = forzado;
+    document.getElementById('titulo-cambio-clave').textContent = forzado ? 'Cambiá tu contraseña' : 'Cambiar contraseña';
+    document.getElementById('texto-cambio-clave').textContent = forzado
+        ? 'Estás usando la contraseña inicial. Por seguridad, elegí una nueva antes de continuar. La vas a usar también en Admisión y Festivales.'
+        : 'La nueva contraseña vale para todas las aplicaciones de Mandala (Core, Admisión y Festivales).';
+    document.getElementById('btn-cambio-clave-salir').textContent = forzado ? 'Cerrar sesión' : 'Cancelar';
+    ['clave-actual', 'clave-nueva', 'clave-repetir'].forEach(id => { document.getElementById(id).value = ''; });
+    mostrarErrorCambioClave('');
+    abrirVentana('modal-cambio-clave');
+    setTimeout(() => document.getElementById('clave-actual')?.focus(), 60);
+}
+
+function mostrarErrorCambioClave(msg) {
+    const el = document.getElementById('cambio-clave-error');
+    el.textContent = msg || '';
+    el.hidden = !msg;
+}
+
+async function enviarCambioClave(e) {
+    e.preventDefault();
+    const actual = document.getElementById('clave-actual').value;
+    const nueva = document.getElementById('clave-nueva').value;
+    const repetir = document.getElementById('clave-repetir').value;
+
+    if (!actual || !nueva || !repetir) return mostrarErrorCambioClave('Completá los tres campos.');
+    if (nueva.length < 6) return mostrarErrorCambioClave('La nueva contraseña debe tener al menos 6 caracteres.');
+    if (nueva !== repetir) return mostrarErrorCambioClave('Las dos contraseñas nuevas no coinciden.');
+    if (nueva === CLAVE_INICIAL_DEFECTO) return mostrarErrorCambioClave('No podés usar la contraseña inicial como contraseña nueva.');
+    if (nueva === actual) return mostrarErrorCambioClave('La nueva contraseña tiene que ser distinta de la actual.');
+
+    const btn = document.getElementById('btn-cambio-clave-ok');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    const res = await cambiarPassword(actual, nueva);
+    btn.disabled = false;
+    btn.textContent = 'Cambiar contraseña';
+
+    if (!res.ok) return mostrarErrorCambioClave(res.error);
+
+    await marcarPasswordModificada(usuarioActual?.ids || (usuarioActual?.id ? [usuarioActual.id] : []));
+    if (usuarioActual) usuarioActual.password_modificada = true;
+    cerrarVentana('modal-cambio-clave');
+    showToast('Contraseña actualizada');
+}
+
+/* ---- Revisar accesos (herramienta de administrador, etapa 0) ---- */
+let accesosPendientes = [];
+
+function chipsApps(apps, clase) {
+    if (!apps.length) return '<span class="ds-chip">Ninguna</span>';
+    return apps.map(id => `<span class="ds-chip ${clase}">${escHtml(APPS_CON_ACCESO[id]?.nombre || id)}</span>`).join(' ');
+}
+
+async function abrirRevisarAccesos() {
+    if (!usuarioActual?.esAdmin) return;
+    const lista = document.getElementById('accesos-lista');
+    const resumen = document.getElementById('accesos-resumen');
+    const btnGuardar = document.getElementById('btn-accesos-guardar');
+    lista.innerHTML = '<div class="ds-empty"><b>Cargando usuarios…</b></div>';
+    resumen.innerHTML = '';
+    btnGuardar.disabled = true;
+    abrirVentana('modal-accesos');
+
+    let usuarios;
+    try {
+        usuarios = await leerTodosLosUsuarios();
+    } catch (err) {
+        console.warn('[MDL Core] No se pudieron leer los usuarios:', err);
+        lista.innerHTML = `<div class="ds-empty"><b>No se pudieron leer los usuarios</b>${escHtml(err.code || err.message || '')}</div>`;
+        return;
+    }
+
+    usuarios.sort((a, b) => (a.activo === false) - (b.activo === false) || String(a.nombre || a.email || '').localeCompare(String(b.nombre || b.email || '')));
+
+    // Correos repetidos (fichas duplicadas): se marcan para revisarlos
+    const conteoEmail = {};
+    usuarios.forEach(u => { const e = String(u.email || '').toLowerCase(); conteoEmail[e] = (conteoEmail[e] || 0) + 1; });
+
+    accesosPendientes = [];
+    const filas = usuarios.map(u => {
+        const guardadas = appsGuardadas(u);
+        const propuestas = appsPropuestas(u);
+        const tieneCampo = Array.isArray(u.apps_habilitadas);
+        const cambia = !tieneCampo || !mismasApps(guardadas, propuestas);
+        if (cambia) accesosPendientes.push({ id: u.id, apps: propuestas });
+
+        const roles = listaRoles(u);
+        const duplicado = conteoEmail[String(u.email || '').toLowerCase()] > 1;
+        const estadoChip = cambia
+            ? `<span class="ds-chip warn">${tieneCampo ? 'Se actualiza' : 'Se completa'}</span>`
+            : '<span class="ds-chip ok">Al día</span>';
+        const nombre = u.nombre || (u.email || '').split('@')[0] || '(sin nombre)';
+        const iniciales = nombre.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('');
+
+        return `
+            <div class="acceso-fila ${u.activo === false ? 'inactivo' : ''}">
+                <span class="ds-avatar" aria-hidden="true">${escHtml(iniciales)}</span>
+                <div class="acceso-nombre">
+                    <b>${escHtml(nombre)}</b>
+                    <span>${escHtml(u.email || 'sin correo')}</span>
+                    <div class="acceso-etiquetas">
+                        ${u.activo === false ? '<span class="ds-chip">Inactivo</span>' : ''}
+                        ${duplicado ? '<span class="ds-chip bad">Correo repetido</span>' : ''}
+                    </div>
+                </div>
+                <div class="acceso-roles"><small>Roles</small>${roles.length ? escHtml(roles.join(', ')) : '—'}</div>
+                <div class="acceso-apps"><small>Hoy en la ficha</small>${tieneCampo ? chipsApps(guardadas, 'info') : '<span class="acceso-vacio">Sin completar</span>'}</div>
+                <div class="acceso-apps"><small>Acceso calculado</small>${chipsApps(propuestas, 'teal')}</div>
+                <div class="acceso-estado">${estadoChip}</div>
+            </div>`;
+    });
+
+    const activos = usuarios.filter(u => u.activo !== false).length;
+    resumen.innerHTML = `
+        <span class="ds-chip">${usuarios.length} fichas (${activos} activas)</span>
+        <span class="ds-chip ${accesosPendientes.length ? 'warn' : 'ok'}">${accesosPendientes.length} para completar o actualizar</span>`;
+    lista.innerHTML = filas.join('') || '<div class="ds-empty"><b>No hay usuarios</b></div>';
+    btnGuardar.disabled = accesosPendientes.length === 0;
+    btnGuardar.textContent = accesosPendientes.length ? `Guardar accesos (${accesosPendientes.length})` : 'Todo al día';
+}
+
+async function guardarAccesosRevisados() {
+    if (!usuarioActual?.esAdmin || accesosPendientes.length === 0) return;
+    const btn = document.getElementById('btn-accesos-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+        const n = await guardarAppsHabilitadas(accesosPendientes);
+        showToast(`Accesos guardados en ${n} fichas`);
+        await abrirRevisarAccesos();
+    } catch (err) {
+        console.error('[MDL Core] Error al guardar accesos:', err);
+        showToast('No se pudieron guardar los accesos. Revisá la consola.');
+        btn.disabled = false;
+        btn.textContent = `Guardar accesos (${accesosPendientes.length})`;
+    }
+}
 
 /* ================================================================
    EVENTOS GLOBALES
@@ -310,6 +667,12 @@ function bindGlobalEvents() {
             const newModDialog = document.getElementById('new-module-dialog');
             if (newModDialog && newModDialog.style.display !== 'none') {
                 hideNewModuleDialog();
+            } else if (document.getElementById('profile-popover')?.classList.contains('show')) {
+                abrirPopoverPerfil(false);
+            } else if (!document.getElementById('modal-cambio-clave')?.hidden && !cambioClaveForzado) {
+                cerrarVentana('modal-cambio-clave');
+            } else if (!document.getElementById('modal-accesos')?.hidden) {
+                cerrarVentana('modal-accesos');
             } else if (isModalOpen) {
                 closeModal();
             }
@@ -408,9 +771,12 @@ function renderModules() {
     gridApps.innerHTML = '';
     gridWebs.innerHTML = '';
 
-    // Filtrar módulos visibles (hidden !== true)
-    const visibleApps = appConfig.modules.filter(m => (m.type || 'app') === 'app' && !m.hidden);
-    const visibleWebs = appConfig.modules.filter(m => m.type === 'web' && !m.hidden);
+    // Sin sesión no se muestra nada
+    if (!usuarioActual) return;
+
+    // Filtrar módulos visibles (hidden !== true) y permitidos para el usuario (v1.1)
+    const visibleApps = appConfig.modules.filter(m => (m.type || 'app') === 'app' && puedeVerModulo(m, usuarioActual));
+    const visibleWebs = appConfig.modules.filter(m => m.type === 'web' && puedeVerModulo(m, usuarioActual));
 
     // Renderizar tarjetas
     visibleApps.forEach(mod => gridApps.appendChild(createCleanCard(mod)));
@@ -428,7 +794,14 @@ function renderModules() {
         p.style.textAlign = 'center';
         p.style.width = '100%';
         p.style.color = 'var(--text-muted)';
-        p.textContent = 'No hay módulos visibles. Hacé clic en "Configurar" para habilitar o agregar.';
+        p.textContent = usuarioActual.esAdmin
+            ? 'No hay módulos visibles. Hacé clic en "Configurar" para habilitar o agregar.'
+            : 'Todavía no tenés aplicaciones habilitadas. Pedile acceso al administrador.';
+        gridApps.appendChild(p);
+    } else if (visibleApps.length === 0 && !usuarioActual.esAdmin) {
+        const p = document.createElement('p');
+        p.className = 'empty-state aviso-sin-apps';
+        p.textContent = 'Todavía no tenés aplicaciones habilitadas. Pedile acceso al administrador.';
         gridApps.appendChild(p);
     }
 }
@@ -474,6 +847,7 @@ function createCleanCard(mod) {
    MODAL MASTER-DETAIL – ABRIR / CERRAR / GUARDAR
    ================================================================ */
 function openModal() {
+    if (!usuarioActual?.esAdmin) return;
     isModalOpen = true;
     draftConfig = JSON.parse(JSON.stringify(appConfig));
     draftConfig.modules = draftConfig.modules.map(normalizeModule);
@@ -511,6 +885,11 @@ async function saveModal() {
     try {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Guardando...';
+
+        // v1.1: las aplicaciones sin acceso definido guardan el deducido por la URL
+        draftConfig.modules.forEach(m => {
+            if ((m.type || 'app') === 'app' && !m.acceso_app) m.acceso_app = accesoDeModulo(m);
+        });
 
         appConfig = JSON.parse(JSON.stringify(draftConfig));
         saveLocal(appConfig);
@@ -771,6 +1150,23 @@ function renderDetailPanel() {
             <input type="url" id="edit-mod-url" class="input-text" value="${escHtml(mod.url)}" placeholder="https://..." autocomplete="off">
         </div>
 
+        ${isWeb ? `
+        <p class="nota-acceso">Los enlaces externos los ven todos los usuarios que ingresan a Core.</p>
+        ` : `
+        <!-- ACCESO (v1.1): quién ve esta tarjeta -->
+        <div class="field-group">
+            <label for="edit-mod-acceso">Quién ve esta aplicación</label>
+            <select id="edit-mod-acceso" class="input-text">
+                ${[...IDS_APPS, ACCESO_SOLO_ADMIN, ACCESO_TODOS].map(v => `
+                    <option value="${v}" ${accesoDeModulo(mod) === v ? 'selected' : ''}>${escHtml(etiquetaAcceso(v))}</option>
+                `).join('')}
+            </select>
+            <p class="nota-acceso">${mod.acceso_app
+                ? 'Los permisos de cada persona se asignan en la gestión de usuarios (próxima etapa). El administrador ve todas las aplicaciones.'
+                : 'Todavía no está guardado: se dedujo por la URL. Al guardar los cambios queda fijo.'}</p>
+        </div>
+        `}
+
         <!-- SELECTOR DE ÍCONOS VECTORIALES -->
         <div class="field-group">
             <div class="icons-picker-header">
@@ -840,6 +1236,13 @@ function renderDetailPanel() {
     if (urlInput) {
         urlInput.addEventListener('input', () => {
             mod.url = urlInput.value;
+        });
+    }
+
+    const accesoSelect = document.getElementById('edit-mod-acceso');
+    if (accesoSelect) {
+        accesoSelect.addEventListener('change', () => {
+            mod.acceso_app = accesoSelect.value;
         });
     }
 
