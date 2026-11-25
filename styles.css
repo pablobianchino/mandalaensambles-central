@@ -1519,6 +1519,15 @@ table.abm-tabla { width: 100%; border-collapse: collapse; }
 .usu-aviso-app[hidden] { display: none; }
 .usu-aviso-app.warn { background: var(--warn-bg); color: var(--warn); }
 
+/* v1.6 – App Docentes (azul de información) */
+.abm-tabla th.grp.doc { color: var(--info); }
+.abm-tilde.doc { background: var(--info); }
+.abm-chip.doc { border-color: #c9d8ec; background: var(--info-bg); color: var(--info); }
+.abm-user-app.doc { background: var(--info-bg); border-color: #c9d8ec; color: var(--info); }
+.abm-switch.doc input:checked + span { background: var(--info); }
+.app-acceso-roles.doc .abm-rol input { accent-color: var(--info); }
+.app-acceso-roles.doc .abm-rol:has(input:checked) { border-color: var(--info); background: var(--info-bg); }
+
 /* Ventanas que se abren encima de la ventana del usuario */
 .ds-overlay-arriba { z-index: 2100; }
 .clave-temp-fila { display: flex; gap: 8px; align-items: center; }
