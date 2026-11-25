@@ -25,9 +25,25 @@ export const APPS_CON_ACCESO = {
     },
     festival: {
         nombre: 'Festivales',
-        roles: ['gestor_festivales', 'sonidista_festivales', 'planificador_clases']
+        roles: ['gestor_festivales', 'sonidista_festivales']
+    },
+    // v1.6: Portal Docentes (app_mdl_docentes). Entra quien tiene 'docentes' en apps_habilitadas;
+    // estos roles solo sirven de respaldo para fichas sin ese campo.
+    docentes: {
+        nombre: 'Docentes',
+        roles: ['docente', 'profesor', 'evaluador', 'planificador_clases']
     }
 };
+
+/* Apps a las que se puede entrar sin un rol propio. v1.6 (corrección): ninguna; se deja para el futuro. */
+export const APPS_SIN_ROL_OBLIGATORIO = [];
+
+/* Roles que también cuentan como rol válido para otra app:
+   - docentes: 'docente' es un rol COMPARTIDO con Admisión (el mismo dato en la ficha), no un rol nuevo.
+     Para entrar a Docentes hace falta Docente o Planificador.
+   - festival (transición hasta la etapa 8 del plan de Docentes): Festivales sigue mostrando Planificación
+     a quien tiene planificador_clases. */
+export const ROLES_EXTRA_VALIDOS = { festival: ['planificador_clases'], docentes: ['docente'] };
 
 export const IDS_APPS = Object.keys(APPS_CON_ACCESO);
 
@@ -154,6 +170,7 @@ export function inferirAccesoPorUrl(url) {
     const u = normalizar(url);
     if (u.includes('admision')) return 'admision';
     if (u.includes('festival')) return 'festival';
+    if (u.includes('docentes')) return 'docentes';
     return ACCESO_SOLO_ADMIN;
 }
 
@@ -182,13 +199,16 @@ export const ROLES_POR_APP = {
     admision: [
         ['admisor', 'Admisor', 'Inbox, lista de espera, Match, altas, seguimientos y métricas.'],
         ['coordinador_grupos', 'Coordinador de grupos', 'Match, altas y seguimientos. Edita perfil y disponibilidad de otros.'],
-        ['docente', 'Docente', 'Portal docente. Su perfil, aptitudes y disponibilidad se cargan en Admisión.'],
+        ['docente', 'Docente', 'Modo docente en Admisión (evaluaciones y seguimientos según aptitudes). Es el mismo rol que da entrada al Portal Docentes.'],
         ['atencion_cliente', 'Atención al cliente', 'Solo Inbox.']
     ],
     festival: [
         ['gestor_festivales', 'Gestor de Festivales', 'Acceso completo a Festivales.'],
-        ['sonidista_festivales', 'Sonidista', 'Rider técnico y REC de los eventos en curso.'],
-        ['planificador_clases', 'Planificador de clases', 'Eventos en lectura y Planificación de clases.']
+        ['sonidista_festivales', 'Sonidista', 'Rider técnico y REC de los eventos en curso.']
+    ],
+    // v1.6: el planificador pasa de Festivales a Docentes
+    docentes: [
+        ['planificador_clases', 'Planificador de clases', 'Ve y gestiona las clases de todos los docentes: suplencias, recuperos y avisos de festivales.']
     ]
 };
 
@@ -259,19 +279,35 @@ export function formularioDesdeFicha(u) {
     };
 }
 
+/* ¿El rol cuenta para la app? (su rol propio, o uno compartido o de transición) */
+export function rolCuentaPara(rol, app) {
+    return appDeRol(rol) === app || (ROLES_EXTRA_VALIDOS[app] || []).includes(rol);
+}
+
+/* Apps para las que cuenta un rol (por ejemplo, docente → Admisión y Docentes) */
+export function appsDelRol(rol) {
+    return IDS_APPS.filter(app => rolCuentaPara(rol, app));
+}
+
+/* Apps activadas que no tienen ningún rol que las respalde ("Acceso sin rol") */
+export function appsSinRol(form) {
+    if (form.admin) return [];
+    return IDS_APPS.filter(id => {
+        if (!form.apps[id]) return false;
+        if (APPS_SIN_ROL_OBLIGATORIO.includes(id)) return false;
+        if (id === 'admision' && form.personalizado) return false;
+        return !form.roles.some(r => rolCuentaPara(r, id));
+    });
+}
+
 /* Errores que impiden guardar (lista vacía = se puede guardar) */
 export function validarFormulario(form, esNuevo) {
     const errores = [];
     if (esNuevo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(form.email || '').trim())) errores.push('Ingresá un correo válido.');
     if (!String(form.nombre || '').trim()) errores.push('Ingresá el nombre.');
-    if (!form.admin) {
-        IDS_APPS.forEach(id => {
-            if (id === 'admision' && form.personalizado) return;
-            if (form.apps[id] && !form.roles.some(r => appDeRol(r) === id)) {
-                errores.push(`Elegí al menos un rol en ${APPS_CON_ACCESO[id].nombre} o desactivá su acceso.`);
-            }
-        });
-    }
+    appsSinRol(form).forEach(id => {
+        errores.push(`Elegí al menos un rol en ${APPS_CON_ACCESO[id].nombre} o desactivá su acceso.`);
+    });
     return errores;
 }
 
@@ -280,15 +316,17 @@ export function calcularGuardado(ficha, form) {
     const rolesViejos = ficha ? listaRoles(ficha) : [];
     const appsActivas = form.admin ? [...IDS_APPS] : IDS_APPS.filter(id => form.apps[id]);
 
-    // Roles de las apps activas (el administrador conserva además los roles que tenga marcados)
-    const rolesApps = (form.roles || []).filter(r => ROLES_DE_APPS.includes(r) && appsActivas.includes(appDeRol(r)));
+    // Roles de las apps activas (también los que cuentan para otra app activa durante la transición,
+    // por ejemplo planificador_clases con Festivales activo y Docentes todavía sin activar)
+    const rolesApps = (form.roles || []).filter(r => ROLES_DE_APPS.includes(r) && appsActivas.some(app => rolCuentaPara(r, app)));
     // Roles que no maneja Core (por ejemplo "personalizado"): se conservan, salvo que ya no tenga Admisión
     const otros = rolesViejos.filter(r => !ROLES_GESTIONADOS.has(r) && !(r === 'personalizado' && (!appsActivas.includes('admision') || rolesApps.length > 0 || form.admin)));
     let roles = [...new Set([...(form.admin ? ['admin'] : []), ...rolesApps, ...otros])];
     if (roles.length === 0) roles = ['personalizado']; // mismo criterio que Admisión
 
-    // Rol principal: mismo criterio que Admisión (el primero que no sea de Festivales)
-    const rol = roles.find(r => !ROLES_FESTIVAL.includes(r)) || roles[0];
+    // Rol principal: mismo criterio que Admisión (el primero que no sea de Festivales);
+    // v1.6: el planificador tampoco queda como principal si hay otro
+    const rol = roles.find(r => !ROLES_FESTIVAL.includes(r) && r !== 'planificador_clases') || roles[0];
 
     const datos = {
         nombre: String(form.nombre || '').trim(),
