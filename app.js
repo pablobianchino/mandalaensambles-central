@@ -19,7 +19,7 @@ import {
 import { iniciarUsuarios, mostrarUsuarios, ocultarUsuarios } from "./usuarios.js";
 
 /* Versión de Core: se sube en cada desarrollo y se registra en CAMBIOS_core.md */
-const APP_VERSION = 'v1.6';
+const APP_VERSION = 'v1.7';
 
 /* ----------------------------------------------------------------
    CONFIGURACIÓN FIREBASE (Mandala Ensambles)
@@ -780,9 +780,60 @@ function createCleanCard(mod) {
             e.preventDefault();
             showToast('Este módulo no tiene una URL configurada aún.');
         });
+    } else if (!isWeb && APPS_CON_PASE.includes(accesoDeModulo(mod))) {
+        // v1.7 (etapa 4): la app se abre con un pase de un solo uso y entra con el mismo usuario de Core
+        card.addEventListener('click', (e) => {
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return; // clic con modificadores: se abre normal
+            e.preventDefault();
+            abrirAppConPase(rawUrl, accesoDeModulo(mod), mod.title);
+        });
     }
 
     return card;
+}
+
+/* ================================================================
+   v1.7 – PASE DE UN SOLO USO (etapa 4)
+   Core pide el pase a su servidor (api/pase-emitir) y abre la app con #pase=… (la parte de la dirección
+   después de # no viaja a ningún servidor). La app lo canjea (api/pase-canjear) y entra con el mismo
+   usuario de Core, reemplazando cualquier sesión anterior. Si algo falla, la app se abre normal.
+   ================================================================ */
+const APPS_CON_PASE = ['admision', 'festival', 'docentes'];
+
+async function abrirAppConPase(url, app, titulo) {
+    // La pestaña se abre ya (dentro del clic) para que el navegador no la bloquee; después se le pone la dirección
+    const ventana = window.open('about:blank', '_blank');
+    if (!ventana) {
+        window.open(url, '_blank', 'noreferrer');
+        return;
+    }
+    try {
+        ventana.document.title = `Abriendo ${titulo}…`;
+        ventana.document.body.style.cssText = 'font-family:Hanken Grotesk,system-ui,sans-serif;color:#1f5491;display:grid;place-items:center;height:100vh;margin:0;background:#fbfaf8;font-weight:300;letter-spacing:.08em;';
+        ventana.document.body.textContent = `Abriendo ${titulo}…`;
+    } catch (e) { /* si no se puede escribir, sigue en blanco unos instantes */ }
+
+    let destino = url;
+    try {
+        const idToken = await obtenerAuth().currentUser?.getIdToken();
+        if (idToken) {
+            const r = await fetch('/api/pase-emitir', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken, app })
+            });
+            const resp = await r.json().catch(() => null);
+            if (r.ok && resp?.pase) {
+                destino = url.split('#')[0] + '#pase=' + encodeURIComponent(resp.pase);
+            } else {
+                console.warn('[MDL Core] No se emitió el pase:', r.status, resp?.error);
+            }
+        }
+    } catch (e) {
+        console.warn('[MDL Core] No se pudo pedir el pase:', e);
+    }
+    try { ventana.opener = null; } catch (e) { /* nada */ }
+    ventana.location.replace(destino);
 }
 
 /* ================================================================
